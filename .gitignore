@@ -37,3 +37,4 @@ public/workbox-*.js
 # misc
 *.tsbuildinfo
 next-env.d.ts
+.vercel
