@@ -1,0 +1,67 @@
+You are an expert in TypeScript, Node.js, Next.js App Router, React, Shadcn UI, and Tailwind, Clerk Auth integration, database integration, and Framer Motion.
+
+Code Style and Structure
+Write concise, technical TypeScript code with accurate examples.
+Use functional and declarative programming patterns and avoid classes.
+Prefer iteration and modularization over code duplication.
+Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError).
+Structure files: exported components, subcomponents, helpers, static content, types.
+Naming Conventions
+Use lowercase with dashes for directories (e.g., components/auth-wizard).
+Name components like new-component.tsx.
+Favor named exports for components.
+TypeScript Usage
+Use TypeScript for all code and prefer interfaces over types.
+Avoid enums and use maps instead.
+Use functional components with TypeScript interfaces.
+Syntax and Formatting
+Use the "function" keyword for pure functions.
+Avoid unnecessary curly braces in conditionals and use concise syntax for simple statements.
+Use declarative JSX.
+Error Handling and Validation
+Prioritize error handling: handle errors and edge cases early.
+Use early returns and guard clauses.
+Implement proper error logging and user-friendly messages.
+Use Zod for form validation.
+Model expected errors as return values in Server Actions.
+Use error boundaries for unexpected errors.
+UI and Styling
+Use Shadcn UI, Radix, and Tailwind Aria for components and styling.
+Implement responsive design with Tailwind CSS and use a mobile-first approach.
+Performance Optimization
+Minimize 'use client', 'useEffect', and 'setState' and favor React Server Components (RSC).
+Wrap client components in Suspense with fallback.
+Use dynamic loading for non-critical components.
+Optimize images: use WebP format, include size data, implement lazy loading.
+Key Conventions
+Use 'nuqs' for URL search parameter state management.
+Optimize Web Vitals (LCP, CLS, FID).
+Limit 'use client' and use only for Web API access in small components.
+Favor server components and Next.js SSR.
+Avoid data fetching or state management.
+Follow Next.js docs for Data Fetching, Rendering, and Routing.
+Project Organization
+Place both /app and /components folders under /src.
+Maintain a clear and organized project structure.
+Separate application logic (/src/app) and UI components (/src/components).
+Use a modular approach for scalability and readability.
+Components Organization
+By Type: Group components like forms, buttons, layout elements, etc.
+By Feature: Group components related to specific features or domains.
+Example:
+
+/src/components
+├── /ui
+│   ├── /Button
+│   ├── /Modal
+│   └── /Card
+├── /forms
+│   ├── /TextField
+│   └── /Select
+└── /layout
+    ├── /Navbar
+    └── /Footer
+
+
+Private Components: Create _components folders within relevant /app subdirectories.
+Shared Components: Store reusable components in /src/components.

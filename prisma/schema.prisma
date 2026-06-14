@@ -1,0 +1,21 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                     String   @id @default(cuid())
+  clerkId                String   @unique
+  teamMembers            Json     @default("[]")
+  questions              Json     @default("[{\"id\":\"default-1\",\"text\":\"What will I do today?\"},{\"id\":\"default-2\",\"text\":\"Do I have blockers for today?\"},{\"id\":\"default-3\",\"text\":\"Do I have capacity today to help others?\"}]")
+  newcomerIntroQuestions Json     @default("[{\"id\":\"default-1\",\"text\":\"Your name\"},{\"id\":\"default-2\",\"text\":\"Your role\"},{\"id\":\"default-3\",\"text\":\"Are you a morning person?\"},{\"id\":\"default-4\",\"text\":\"Should pineapple be allowed on pizza?\"}]")
+  standupDurationMinutes Int      @default(2)
+  standupDurationSeconds Int      @default(0)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
