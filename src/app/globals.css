@@ -2,11 +2,20 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+@font-face {
+  font-family: "Blackout";
+  src: url("/fonts/BlackoutMidnight.ttf") format("truetype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  --font-display: "Blackout", system-ui, sans-serif;
   --radius: 0.625rem;
   --radius-input: 0.375rem;
   --radius-button: 0.5rem;

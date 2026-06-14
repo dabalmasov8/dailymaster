@@ -18,7 +18,7 @@ export function TimerDisplay({
   return (
     <p
       className={cn(
-        "font-mono text-6xl font-black tracking-wider",
+        "font-display text-6xl font-black tracking-wider",
         warning && "text-destructive",
         className,
       )}

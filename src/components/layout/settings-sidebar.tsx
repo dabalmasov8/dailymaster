@@ -24,8 +24,8 @@ export function SettingsSidebar() {
             className={cn(
               "whitespace-nowrap rounded-pill px-4 py-2 text-sm font-medium transition-colors",
               isActive
-                ? "bg-secondary text-secondary-foreground"
-                : "text-foreground hover:bg-muted",
+                ? "bg-muted text-foreground"
+                : "text-foreground hover:bg-muted/60",
             )}
           >
             {label}

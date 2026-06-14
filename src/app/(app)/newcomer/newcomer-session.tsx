@@ -34,7 +34,7 @@ export function NewcomerSession({
 
   return (
     <div className="flex flex-col items-center py-16">
-      <h1 className="text-6xl font-black tracking-tight text-primary">
+      <h1 className="font-display text-6xl font-black tracking-tight text-primary">
         WELCOME ON BOARD!
       </h1>
       <p className="mt-4 text-lg text-muted-foreground">
@@ -59,8 +59,15 @@ export function NewcomerSession({
             Start (N)
           </button>
           {members.length === 0 && (
-            <p className="mt-4 text-sm text-muted-foreground">
-              Add participants in Settings first.
+            <p className="mt-6 text-base text-muted-foreground">
+              Add participants in{" "}
+              <a
+                href="/settings/participants"
+                className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80"
+              >
+                Settings
+              </a>{" "}
+              first.
             </p>
           )}
         </div>

@@ -35,7 +35,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/favicon.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/icons/pwa-logo-192.png" />
       </head>
       <body className="font-sans antialiased">
         <ClientClerkProvider>{children}</ClientClerkProvider>

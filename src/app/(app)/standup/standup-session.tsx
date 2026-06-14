@@ -248,7 +248,7 @@ export function StandupSession({
             <h1 className="mt-2 text-3xl font-bold">
               Select participants order
             </h1>
-            <p className="mt-8 font-mono text-6xl font-black tracking-wider">
+            <p className="mt-8 font-display text-6xl font-black tracking-wider">
               --:--
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:gap-4">
@@ -280,8 +280,15 @@ export function StandupSession({
               </button>
             </div>
             {members.length === 0 && (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Add participants in Settings first.
+              <p className="mt-6 text-base text-muted-foreground">
+                Add participants in{" "}
+                <a
+                  href="/settings/participants"
+                  className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80"
+                >
+                  Settings
+                </a>{" "}
+                first.
               </p>
             )}
           </>
