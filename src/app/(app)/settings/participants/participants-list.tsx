@@ -1,6 +1,6 @@
 "use client";
 
-import { useOptimistic, useActionState } from "react";
+import { useOptimistic, useTransition } from "react";
 import { EditableListItem } from "@/components/ui/editable-list-item";
 import { AddItemInput } from "@/components/ui/add-item-input";
 import {
@@ -8,7 +8,7 @@ import {
   updateTeamMember,
   deleteTeamMember,
 } from "../actions";
-import type { TeamMember, ActionResult } from "@/types";
+import type { TeamMember } from "@/types";
 
 export function ParticipantsList({
   initialMembers,
@@ -20,17 +20,21 @@ export function ParticipantsList({
     (state: TeamMember[], newMember: TeamMember) => [...state, newMember],
   );
 
-  const [, addAction] = useActionState(
-    async (prev: ActionResult, formData: FormData) => {
+  const [, startTransition] = useTransition();
+
+  function handleAdd(name: string) {
+    const formData = new FormData();
+    formData.set("name", name);
+    formData.set("position", "");
+    startTransition(() => {
       addOptimistic({
-        id: crypto.randomUUID(),
-        name: formData.get("name") as string,
-        position: (formData.get("position") as string) ?? "",
+        id: Math.random().toString(36).slice(2),
+        name,
+        position: "",
       });
-      return addTeamMember(prev, formData);
-    },
-    { success: true },
-  );
+      addTeamMember({ success: true }, formData);
+    });
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -38,10 +42,8 @@ export function ParticipantsList({
         <EditableListItem
           key={member.id}
           value={member.name}
-          secondaryValue={member.position}
-          secondaryPlaceholder="Position"
-          onSave={(name, position) =>
-            updateTeamMember(member.id, name, position ?? "")
+          onSave={(name) =>
+            updateTeamMember(member.id, name, member.position)
           }
           onDelete={() => deleteTeamMember(member.id)}
         />
@@ -51,14 +53,8 @@ export function ParticipantsList({
       </p>
       <AddItemInput
         placeholder="Name"
-        secondaryPlaceholder="Position"
         buttonLabel="Add new participant"
-        onAdd={(name, position) => {
-          const formData = new FormData();
-          formData.set("name", name);
-          formData.set("position", position ?? "");
-          addAction(formData);
-        }}
+        onAdd={handleAdd}
       />
     </div>
   );

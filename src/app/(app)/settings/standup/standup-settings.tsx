@@ -1,6 +1,6 @@
 "use client";
 
-import { useOptimistic, useActionState } from "react";
+import { useOptimistic, useTransition } from "react";
 import { EditableListItem } from "@/components/ui/editable-list-item";
 import { AddItemInput } from "@/components/ui/add-item-input";
 import { DurationPicker } from "@/components/ui/duration-picker";
@@ -10,7 +10,7 @@ import {
   deleteStandupQuestion,
   updateStandupDuration,
 } from "../actions";
-import type { Question, ActionResult } from "@/types";
+import type { Question } from "@/types";
 
 export function StandupSettings({
   initialQuestions,
@@ -26,16 +26,19 @@ export function StandupSettings({
     (state: Question[], newQuestion: Question) => [...state, newQuestion],
   );
 
-  const [, addAction] = useActionState(
-    async (prev: ActionResult, formData: FormData) => {
+  const [, startTransition] = useTransition();
+
+  function handleAdd(text: string) {
+    const formData = new FormData();
+    formData.set("text", text);
+    startTransition(() => {
       addOptimistic({
-        id: crypto.randomUUID(),
-        text: formData.get("text") as string,
+        id: Math.random().toString(36).slice(2),
+        text,
       });
-      return addStandupQuestion(prev, formData);
-    },
-    { success: true },
-  );
+      addStandupQuestion({ success: true }, formData);
+    });
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -46,6 +49,7 @@ export function StandupSettings({
             <EditableListItem
               key={q.id}
               value={q.text}
+              multiline
               onSave={(text) => updateStandupQuestion(q.id, text)}
               onDelete={() => deleteStandupQuestion(q.id)}
             />
@@ -56,11 +60,7 @@ export function StandupSettings({
           <AddItemInput
             placeholder="Question text"
             buttonLabel="Add new question"
-            onAdd={(text) => {
-              const formData = new FormData();
-              formData.set("text", text);
-              addAction(formData);
-            }}
+            onAdd={handleAdd}
           />
         </div>
       </section>

@@ -60,9 +60,23 @@ Since DailyMaster is a PWA (Progressive Web App — a website that behaves like 
 
 **Timer auto-advances.** When a speaker's time runs out, the app moves to the next person automatically. No one has to click "next" — the meeting keeps flowing. If someone finishes early, one key press skips ahead.
 
-**Copy to clipboard.** After the standup, one button creates a clean summary: who has blockers, who has capacity. Paste it into your team chat. No note-taking during the meeting.
+**Copy standup notes.** After the standup, one button creates a formatted summary with the date, blockers, and capacity. It sits in a visually separated card above the lists — distinct from the action buttons — and shows a "Copied!" confirmation with a brief animation so you know it worked. Paste it into your team chat. No note-taking during the meeting.
 
 **Keyboard shortcuts for everything.** Six keys control the entire standup: D, S, B, C, N, V. The person running the meeting never has to reach for the mouse.
+
+**Delete with undo.** Deleting a participant or question doesn't happen instantly. The row transforms into a "Deleted — Undo (5s)" bar with the name struck through and a countdown. After 5 seconds, it slides out with an animation and the deletion is final. This pattern prevents accidental data loss — no confirmation dialogs that interrupt your flow, but a safety net when you need it.
+
+**Inline edit with autosave.** No pencil icons, no "edit mode." Every field in Settings is always editable — just click and type. Changes save automatically after 600 milliseconds of inactivity, or immediately when you click away. If you clear a field and leave, it reverts to the previous value instead of saving an empty string. This removes an entire layer of UI (edit buttons, save buttons, cancel buttons) without losing any functionality.
+
+**Button visual hierarchy.** During a standup, three actions compete for attention: marking a blocker (urgent, red), marking capacity (important, navy), and moving to the next speaker (routine, outlined). The colour hierarchy makes the destructive action (blocker) visually distinct from the routine one (next). The "Copy standup notes" button uses the primary orange — separate from all action buttons — so it reads as a utility, not a meeting control.
+
+**Responsive mobile-first design.** The app was designed for desktop first (Figma), then reworked for mobile PWA. Header collapses into a hamburger menu with 44px WCAG touch targets. Settings tabs become a segmented control with icons. Standup questions and action buttons stack vertically. Keyboard shortcut hints are hidden on mobile since they don't apply. The "Copy standup notes" button is positioned above the blockers/capacity lists so it's not blocked by the iPhone home bar gesture area.
+
+**Multiline question editing.** Standup and newcomer questions use auto-resizing text areas instead of single-line inputs. Long questions like "If you could have dinner with anyone, living or dead, who would it be?" are fully visible while editing — no truncation, no horizontal scrolling.
+
+**35 built-in icebreaker questions.** The newcomer settings page has an "Add a random icebreaker" button with a spinning animation. It pulls from a curated pool of 35 questions — a mix of food debates, hypothetical scenarios, and personality questions. The pool filters out questions you've already added, so you never get duplicates.
+
+**Consistent design tokens.** Every border radius, colour, and spacing value comes from a shared set of CSS variables. Four radius values across the entire app: 6px for inputs, 8px for buttons, 12px for cards, 20px for pills. This means every element looks like it belongs to the same design system, even though many were built at different times.
 
 ---
 

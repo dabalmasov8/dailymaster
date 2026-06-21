@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useOptimistic, useActionState } from "react";
+import { useState, useOptimistic, useTransition } from "react";
 import { Sparkles } from "lucide-react";
 import { EditableListItem } from "@/components/ui/editable-list-item";
 import { AddItemInput } from "@/components/ui/add-item-input";
@@ -9,7 +9,7 @@ import {
   updateNewcomerQuestion,
   deleteNewcomerQuestion,
 } from "../actions";
-import type { Question, ActionResult } from "@/types";
+import type { Question } from "@/types";
 
 const inspirationQuestions = [
   "What's your hidden talent?",
@@ -27,6 +27,26 @@ const inspirationQuestions = [
   "Do pineapples belong on pizza?",
   "Is cereal a soup?",
   "What's your most unpopular opinion?",
+  "What's your go-to late night snack?",
+  "If you could live in any city, where would it be?",
+  "What song do you secretly know all the words to?",
+  "What's the best advice you've ever received?",
+  "Beach vacation or mountain trip?",
+  "What hobby would you pick up if time and money weren't an issue?",
+  "What's your favorite season and why?",
+  "If you could time travel, would you go to the past or the future?",
+  "What's the most underrated food?",
+  "What show are you binge-watching right now?",
+  "What's one thing on your bucket list?",
+  "If you had a theme song that played when you entered a room, what would it be?",
+  "What's a fun fact about you that surprises people?",
+  "Cooking at home or eating out?",
+  "What's the weirdest food combo you enjoy?",
+  "If you could swap jobs with anyone for a day, who would it be?",
+  "What's the last thing that made you laugh out loud?",
+  "Window seat or aisle seat?",
+  "What's your favorite way to spend a weekend?",
+  "If you could only eat one cuisine for the rest of your life, what would it be?",
 ];
 
 export function NewcomerSettings({
@@ -40,17 +60,19 @@ export function NewcomerSettings({
   );
 
   const [isSpinning, setIsSpinning] = useState(false);
+  const [, startTransition] = useTransition();
 
-  const [, addAction] = useActionState(
-    async (prev: ActionResult, formData: FormData) => {
+  function handleAdd(text: string) {
+    const formData = new FormData();
+    formData.set("text", text);
+    startTransition(() => {
       addOptimistic({
-        id: crypto.randomUUID(),
-        text: formData.get("text") as string,
+        id: Math.random().toString(36).slice(2),
+        text,
       });
-      return addNewcomerQuestion(prev, formData);
-    },
-    { success: true },
-  );
+      addNewcomerQuestion({ success: true }, formData);
+    });
+  }
 
   function handleInspiration() {
     const available = inspirationQuestions.filter(
@@ -61,9 +83,7 @@ export function NewcomerSettings({
     setIsSpinning(true);
     setTimeout(() => {
       const random = available[Math.floor(Math.random() * available.length)];
-      const formData = new FormData();
-      formData.set("text", random);
-      addAction(formData);
+      handleAdd(random);
       setIsSpinning(false);
     }, 500);
   }
@@ -74,6 +94,7 @@ export function NewcomerSettings({
         <EditableListItem
           key={q.id}
           value={q.text}
+          multiline
           onSave={(text) => updateNewcomerQuestion(q.id, text)}
           onDelete={() => deleteNewcomerQuestion(q.id)}
         />
@@ -84,11 +105,7 @@ export function NewcomerSettings({
       <AddItemInput
         placeholder="Question text"
         buttonLabel="Add new question"
-        onAdd={(text) => {
-          const formData = new FormData();
-          formData.set("text", text);
-          addAction(formData);
-        }}
+        onAdd={handleAdd}
       />
       <button
         onClick={handleInspiration}

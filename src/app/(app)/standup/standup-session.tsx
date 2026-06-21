@@ -1,8 +1,9 @@
 "use client";
 
-import { useReducer, useEffect, useCallback, useRef } from "react";
-import { Shuffle, ListOrdered, Trash2, Copy } from "lucide-react";
+import { useReducer, useEffect, useCallback, useRef, useState } from "react";
+import { Shuffle, ListOrdered, Trash2, ClipboardCheck, FileText } from "lucide-react";
 import { TimerDisplay } from "@/components/ui/timer-display";
+import { cn } from "@/lib/utils";
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut";
 import type { TeamMember, Question } from "@/types";
 
@@ -145,6 +146,7 @@ export function StandupSession({
   durationSeconds: number;
 }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [copied, setCopied] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const timePerSpeaker = durationMinutes * 60 + durationSeconds;
@@ -214,6 +216,8 @@ export function StandupSession({
       lines.push("No blockers or capacity reported.");
     }
     navigator.clipboard.writeText(lines.join("\n"));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   const minutes = Math.floor(state.timeLeft / 60);
@@ -390,13 +394,29 @@ export function StandupSession({
       {/* Right: Blockers & Capacity */}
       <div className="shrink-0 lg:w-64">
         {(state.blockers.length > 0 || state.capacity.length > 0) && (
-          <button
-            onClick={copyToClipboard}
-            className="mb-4 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-button border border-secondary px-4 py-2 text-sm font-medium text-secondary hover:bg-muted lg:mb-6"
-          >
-            <Copy className="h-4 w-4" />
-            Copy to clipboard
-          </button>
+          <div className="mb-4 rounded-card bg-card p-3 lg:mb-6">
+            <button
+              onClick={copyToClipboard}
+              className={cn(
+                "flex min-h-[44px] w-full items-center justify-center gap-2 rounded-button px-4 py-2 text-sm font-medium transition-all duration-200",
+                copied
+                  ? "bg-primary text-primary-foreground scale-[0.97]"
+                  : "border border-primary text-primary hover:bg-primary/10",
+              )}
+            >
+              {copied ? (
+                <>
+                  <ClipboardCheck className="h-4 w-4 animate-in zoom-in duration-200" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <FileText className="h-4 w-4" />
+                  Copy standup notes
+                </>
+              )}
+            </button>
+          </div>
         )}
 
         <div className="mb-4 lg:mb-8">
