@@ -49,26 +49,12 @@ export function EditableListItem({
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      <input
-        value={editValue}
-        onChange={(e) => {
-          setEditValue(e.target.value);
-          scheduleAutosave(e.target.value, editSecondary);
-        }}
-        onBlur={() => handleBlur(editValue, editSecondary)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.currentTarget.blur();
-          }
-        }}
-        className="min-h-[44px] flex-1 rounded-input border border-border bg-background px-3 py-2 text-sm transition-colors focus:border-primary focus:outline-none"
-      />
-      {secondaryValue !== undefined && (
+      <div className="flex flex-1 flex-col gap-2 sm:flex-row">
         <input
-          value={editSecondary}
+          value={editValue}
           onChange={(e) => {
-            setEditSecondary(e.target.value);
-            scheduleAutosave(editValue, e.target.value);
+            setEditValue(e.target.value);
+            scheduleAutosave(e.target.value, editSecondary);
           }}
           onBlur={() => handleBlur(editValue, editSecondary)}
           onKeyDown={(e) => {
@@ -76,13 +62,29 @@ export function EditableListItem({
               e.currentTarget.blur();
             }
           }}
-          placeholder={secondaryPlaceholder}
-          className="min-h-[44px] w-32 rounded-input border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground transition-colors focus:border-primary focus:outline-none sm:w-40"
+          className="min-h-[44px] flex-1 rounded-input border border-border bg-background px-3 py-2 text-sm transition-colors focus:border-primary focus:outline-none"
         />
-      )}
+        {secondaryValue !== undefined && (
+          <input
+            value={editSecondary}
+            onChange={(e) => {
+              setEditSecondary(e.target.value);
+              scheduleAutosave(editValue, e.target.value);
+            }}
+            onBlur={() => handleBlur(editValue, editSecondary)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.currentTarget.blur();
+              }
+            }}
+            placeholder={secondaryPlaceholder}
+            className="min-h-[44px] rounded-input border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground transition-colors focus:border-primary focus:outline-none sm:w-40"
+          />
+        )}
+      </div>
       <button
         onClick={onDelete}
-        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-input text-muted-foreground hover:bg-muted hover:text-destructive"
+        className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-input text-muted-foreground hover:bg-muted hover:text-destructive"
         aria-label="Delete"
       >
         <Trash2 className="h-4 w-4" />

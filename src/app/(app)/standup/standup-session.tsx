@@ -389,6 +389,16 @@ export function StandupSession({
 
       {/* Right: Blockers & Capacity */}
       <div className="shrink-0 lg:w-64">
+        {(state.blockers.length > 0 || state.capacity.length > 0) && (
+          <button
+            onClick={copyToClipboard}
+            className="mb-4 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-button border border-secondary px-4 py-2 text-sm font-medium text-secondary hover:bg-muted lg:mb-6"
+          >
+            <Copy className="h-4 w-4" />
+            Copy to clipboard
+          </button>
+        )}
+
         <div className="mb-4 lg:mb-8">
           <h2 className="mb-2 text-sm font-semibold lg:mb-3">People with blockers</h2>
           {state.blockers.length === 0 ? (
@@ -443,15 +453,6 @@ export function StandupSession({
           )}
         </div>
 
-        {(state.blockers.length > 0 || state.capacity.length > 0) && (
-          <button
-            onClick={copyToClipboard}
-            className="mt-4 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-button border border-secondary px-4 py-2 text-sm font-medium text-secondary hover:bg-muted lg:mt-6"
-          >
-            <Copy className="h-4 w-4" />
-            Copy to clipboard
-          </button>
-        )}
       </div>
     </div>
   );
