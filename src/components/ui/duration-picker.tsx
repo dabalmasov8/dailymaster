@@ -23,7 +23,7 @@ export function DurationPicker({
         <select
           value={minutes}
           onChange={(e) => onMinutesChange(Number(e.target.value))}
-          className="rounded-input border border-border bg-background px-3 py-2 text-sm focus:border-secondary focus:outline-none"
+          className="min-h-[44px] rounded-input border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none"
         >
           {Array.from({ length: 11 }, (_, i) => (
             <option key={i} value={i}>
@@ -37,7 +37,7 @@ export function DurationPicker({
         <select
           value={seconds}
           onChange={(e) => onSecondsChange(Number(e.target.value))}
-          className="rounded-input border border-border bg-background px-3 py-2 text-sm focus:border-secondary focus:outline-none"
+          className="min-h-[44px] rounded-input border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none"
         >
           {[0, 15, 30, 45].map((s) => (
             <option key={s} value={s}>

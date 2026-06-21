@@ -1,7 +1,7 @@
 "use client";
 
 import { useReducer, useEffect, useCallback, useRef } from "react";
-import { Shuffle, Trash2, Copy } from "lucide-react";
+import { Shuffle, ListOrdered, Trash2, Copy } from "lucide-react";
 import { TimerDisplay } from "@/components/ui/timer-display";
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut";
 import type { TeamMember, Question } from "@/types";
@@ -14,6 +14,7 @@ type StandupState = {
   totalTime: number;
   blockers: TeamMember[];
   capacity: TeamMember[];
+  isShuffled: boolean;
 };
 
 type StandupAction =
@@ -48,6 +49,7 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
         totalTime: action.timePerSpeaker,
         blockers: [],
         capacity: [],
+        isShuffled: false,
       };
     case "START_SHUFFLED":
       return {
@@ -59,6 +61,7 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
         totalTime: action.timePerSpeaker,
         blockers: [],
         capacity: [],
+        isShuffled: true,
       };
     case "TICK": {
       if (state.timeLeft <= 1) {
@@ -118,7 +121,17 @@ const initialState: StandupState = {
   totalTime: 0,
   blockers: [],
   capacity: [],
+  isShuffled: false,
 };
+
+function formatDate(): string {
+  return new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
 
 export function StandupSession({
   members,
@@ -186,16 +199,20 @@ export function StandupSession({
 
   function copyToClipboard() {
     const lines: string[] = [];
+    lines.push(`Standup Notes — ${formatDate()}`);
+    lines.push("");
     if (state.blockers.length > 0) {
       lines.push("People with blockers:");
       state.blockers.forEach((b) => lines.push(`- ${b.name}`));
     }
     if (state.capacity.length > 0) {
-      if (lines.length > 0) lines.push("");
+      if (state.blockers.length > 0) lines.push("");
       lines.push("People with capacity to help:");
       state.capacity.forEach((c) => lines.push(`- ${c.name}`));
     }
-    if (lines.length === 0) lines.push("No blockers or capacity reported.");
+    if (state.blockers.length === 0 && state.capacity.length === 0) {
+      lines.push("No blockers or capacity reported.");
+    }
     navigator.clipboard.writeText(lines.join("\n"));
   }
 
@@ -204,16 +221,21 @@ export function StandupSession({
   const currentSpeaker = state.speakers[state.currentIndex];
 
   return (
-    <div className="flex flex-col gap-8 px-4 py-6 lg:flex-row lg:px-10 lg:py-10">
+    <div className="flex flex-col gap-4 px-4 py-4 lg:flex-row lg:gap-8 lg:px-10 lg:py-10">
       {/* Left: Questions */}
       <div className="shrink-0 lg:w-64">
-        <h2 className="mb-3 text-sm font-semibold">Questions for today</h2>
-        <div className="flex flex-col gap-2 rounded-card bg-card p-4">
-          {questions.map((q, i) => (
-            <p key={q.id} className="text-lg font-semibold">
-              {i + 1}. {q.text}
-            </p>
-          ))}
+        <h2 className="mb-2 text-sm font-semibold lg:mb-3">Questions for today</h2>
+        <div className="rounded-card bg-card p-3 lg:p-4">
+          <table className="w-full">
+            <tbody>
+              {questions.map((q, i) => (
+                <tr key={q.id}>
+                  <td className="w-6 align-top text-lg font-semibold">{i + 1}.</td>
+                  <td className="pb-1 text-lg font-semibold last:pb-0">{q.text}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
         {/* Shortcuts legend — hidden on mobile */}
@@ -242,16 +264,16 @@ export function StandupSession({
       <div className="flex flex-1 flex-col items-center justify-center">
         {state.phase === "idle" && (
           <>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground lg:text-base">
               Daily meeting is about to start
             </p>
-            <h1 className="mt-2 text-3xl font-bold">
+            <h1 className="mt-1 text-2xl font-bold lg:mt-2 lg:text-3xl">
               Select participants order
             </h1>
-            <p className="mt-8 font-display text-6xl font-black tracking-wider">
+            <p className="mt-4 font-display text-5xl font-black tracking-wider lg:mt-8 lg:text-6xl">
               --:--
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:gap-4">
+            <div className="mt-4 flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-4 lg:mt-8">
               <button
                 onClick={() =>
                   dispatch({
@@ -261,9 +283,9 @@ export function StandupSession({
                   })
                 }
                 disabled={members.length === 0}
-                className="rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50"
+                className="min-h-[44px] rounded-button border border-secondary px-6 py-3 text-sm font-medium text-secondary hover:bg-secondary hover:text-secondary-foreground disabled:opacity-50"
               >
-                Default order (D)
+                Default order<span className="hidden lg:inline"> (D)</span>
               </button>
               <button
                 onClick={() =>
@@ -274,13 +296,13 @@ export function StandupSession({
                   })
                 }
                 disabled={members.length === 0}
-                className="rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50"
+                className="min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50"
               >
-                Shuffled order (S)
+                Shuffled order<span className="hidden lg:inline"> (S)</span>
               </button>
             </div>
             {members.length === 0 && (
-              <p className="mt-6 text-base text-muted-foreground">
+              <p className="mt-4 text-base text-muted-foreground lg:mt-6">
                 Add participants in{" "}
                 <a
                   href="/settings/participants"
@@ -296,49 +318,49 @@ export function StandupSession({
 
         {state.phase === "active" && currentSpeaker && (
           <>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground lg:text-base">
               Now speaking ({state.currentIndex + 1} of{" "}
               {state.speakers.length})
             </p>
-            <h1 className="mt-2 text-4xl font-bold">{currentSpeaker.name}</h1>
-            <div className="mt-6 flex items-center gap-3">
+            <h1 className="mt-1 text-3xl font-bold lg:mt-2 lg:text-4xl">{currentSpeaker.name}</h1>
+            <div className="mt-4 flex items-center gap-3 lg:mt-6">
               <TimerDisplay
                 minutes={minutes}
                 seconds={seconds}
                 warning={state.timeLeft <= 10}
               />
-              <button
-                onClick={() =>
-                  dispatch({
-                    type: "START_SHUFFLED",
-                    speakers: state.speakers,
-                    timePerSpeaker,
-                  })
-                }
-                className="rounded-input p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                title="Reshuffle remaining"
-              >
-                <Shuffle className="h-5 w-5" />
-              </button>
             </div>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:gap-4">
+            <div className="mt-2 flex items-center gap-1.5 text-muted-foreground">
+              {state.isShuffled ? (
+                <>
+                  <Shuffle className="h-3.5 w-3.5" />
+                  <span className="text-xs">Shuffled order</span>
+                </>
+              ) : (
+                <>
+                  <ListOrdered className="h-3.5 w-3.5" />
+                  <span className="text-xs">Default order</span>
+                </>
+              )}
+            </div>
+            <div className="mt-4 flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-4 lg:mt-8">
               <button
                 onClick={() => dispatch({ type: "MARK_BLOCKER" })}
-                className="rounded-button bg-destructive px-6 py-3 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
+                className="min-h-[44px] rounded-button bg-destructive px-6 py-3 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
               >
-                Mark blocker (B)
+                Mark blocker<span className="hidden lg:inline"> (B)</span>
               </button>
               <button
                 onClick={() => dispatch({ type: "MARK_CAPACITY" })}
-                className="rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90"
+                className="min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90"
               >
-                Mark capacity (C)
+                Mark capacity<span className="hidden lg:inline"> (C)</span>
               </button>
               <button
                 onClick={() => dispatch({ type: "NEXT_SPEAKER" })}
-                className="rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90"
+                className="min-h-[44px] rounded-button border border-secondary px-6 py-3 text-sm font-medium text-secondary hover:bg-secondary hover:text-secondary-foreground"
               >
-                Next speaker (N)
+                Next speaker<span className="hidden lg:inline"> (N)</span>
               </button>
             </div>
           </>
@@ -346,9 +368,9 @@ export function StandupSession({
 
         {state.phase === "complete" && (
           <>
-            <p className="text-muted-foreground">Standup complete!</p>
-            <h1 className="mt-2 text-3xl font-bold">Great job, team!</h1>
-            <TimerDisplay minutes={0} seconds={0} className="mt-8" />
+            <p className="text-sm text-muted-foreground lg:text-base">Standup complete!</p>
+            <h1 className="mt-1 text-2xl font-bold lg:mt-2 lg:text-3xl">Great job, team!</h1>
+            <TimerDisplay minutes={0} seconds={0} className="mt-4 lg:mt-8" />
             <button
               onClick={() =>
                 dispatch({
@@ -357,7 +379,7 @@ export function StandupSession({
                   timePerSpeaker,
                 })
               }
-              className="mt-8 rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90"
+              className="mt-4 min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 lg:mt-8"
             >
               Start new standup
             </button>
@@ -367,8 +389,8 @@ export function StandupSession({
 
       {/* Right: Blockers & Capacity */}
       <div className="shrink-0 lg:w-64">
-        <div className="mb-8">
-          <h2 className="mb-3 text-sm font-semibold">People with blockers</h2>
+        <div className="mb-4 lg:mb-8">
+          <h2 className="mb-2 text-sm font-semibold lg:mb-3">People with blockers</h2>
           {state.blockers.length === 0 ? (
             <p className="text-sm text-muted-foreground">None</p>
           ) : (
@@ -383,7 +405,7 @@ export function StandupSession({
                     onClick={() =>
                       dispatch({ type: "REMOVE_BLOCKER", id: b.id })
                     }
-                    className="text-muted-foreground hover:text-destructive"
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-destructive"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -394,7 +416,7 @@ export function StandupSession({
         </div>
 
         <div>
-          <h2 className="mb-3 text-sm font-semibold">
+          <h2 className="mb-2 text-sm font-semibold lg:mb-3">
             People with capacity
           </h2>
           {state.capacity.length === 0 ? (
@@ -411,7 +433,7 @@ export function StandupSession({
                     onClick={() =>
                       dispatch({ type: "REMOVE_CAPACITY", id: c.id })
                     }
-                    className="text-muted-foreground hover:text-destructive"
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-destructive"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -424,7 +446,7 @@ export function StandupSession({
         {(state.blockers.length > 0 || state.capacity.length > 0) && (
           <button
             onClick={copyToClipboard}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-button border border-secondary px-4 py-2 text-sm font-medium text-secondary hover:bg-muted"
+            className="mt-4 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-button border border-secondary px-4 py-2 text-sm font-medium text-secondary hover:bg-muted lg:mt-6"
           >
             <Copy className="h-4 w-4" />
             Copy to clipboard

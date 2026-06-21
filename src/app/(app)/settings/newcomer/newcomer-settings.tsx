@@ -1,6 +1,6 @@
 "use client";
 
-import { useOptimistic, useActionState } from "react";
+import { useState, useOptimistic, useActionState } from "react";
 import { Sparkles } from "lucide-react";
 import { EditableListItem } from "@/components/ui/editable-list-item";
 import { AddItemInput } from "@/components/ui/add-item-input";
@@ -24,6 +24,9 @@ const inspirationQuestions = [
   "If you could learn any skill instantly, what would it be?",
   "What's your favorite movie?",
   "Early bird or night owl?",
+  "Do pineapples belong on pizza?",
+  "Is cereal a soup?",
+  "What's your most unpopular opinion?",
 ];
 
 export function NewcomerSettings({
@@ -35,6 +38,8 @@ export function NewcomerSettings({
     initialQuestions,
     (state: Question[], newQuestion: Question) => [...state, newQuestion],
   );
+
+  const [isSpinning, setIsSpinning] = useState(false);
 
   const [, addAction] = useActionState(
     async (prev: ActionResult, formData: FormData) => {
@@ -52,10 +57,15 @@ export function NewcomerSettings({
       (q) => !optimisticQuestions.some((existing) => existing.text === q),
     );
     if (available.length === 0) return;
-    const random = available[Math.floor(Math.random() * available.length)];
-    const formData = new FormData();
-    formData.set("text", random);
-    addAction(formData);
+
+    setIsSpinning(true);
+    setTimeout(() => {
+      const random = available[Math.floor(Math.random() * available.length)];
+      const formData = new FormData();
+      formData.set("text", random);
+      addAction(formData);
+      setIsSpinning(false);
+    }, 500);
   }
 
   return (
@@ -82,10 +92,11 @@ export function NewcomerSettings({
       />
       <button
         onClick={handleInspiration}
-        className="flex w-fit items-center gap-2 rounded-button bg-ai px-4 py-2 text-sm font-medium text-ai-foreground hover:bg-ai/90"
+        disabled={isSpinning}
+        className="flex min-h-[44px] w-fit items-center gap-2 rounded-button bg-ai px-4 py-2 text-sm font-medium text-ai-foreground hover:bg-ai/90 disabled:opacity-70"
       >
-        <Sparkles className="h-4 w-4" />
-        Get inspiration
+        <Sparkles className={`h-4 w-4 ${isSpinning ? "animate-spin" : ""}`} />
+        {isSpinning ? "Picking one..." : "Add a random icebreaker"}
       </button>
     </div>
   );
