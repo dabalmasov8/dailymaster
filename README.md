@@ -82,6 +82,14 @@ Since DailyMaster is a PWA (Progressive Web App — a website that behaves like 
 
 **Consistent design tokens.** Every border radius, colour, and spacing value comes from a shared set of CSS variables. Four radius values across the entire app: 6px for inputs, 8px for buttons, 12px for cards, 20px for pills. This means every element looks like it belongs to the same design system, even though many were built at different times.
 
+**One clear call to action, not three.** The first version of the marketing page had "Sign-up / Login" in the header, "Start for free" in the hero, and a second "Sign-up / Login" at the bottom — three different labels asking for the same click. I collapsed it to a single message: a quiet "Log in" for people who already have an account (header, low visual weight), and "Start for free" repeated once at the top and once at the bottom for new visitors. Same number of buttons, one message.
+
+**Screenshots paired with the benefit they prove.** Rather than a wall of icons and adjectives, the marketing page alternates text and a real screenshot for each feature — the actual timer, the actual copy-notes button, the actual icebreaker picker. Claims are easier to trust when you can see the interface behind them. All screenshots use the same 12px card radius as the rest of the design system, so they read as part of the product, not stock photography.
+
+**No white flash on mobile Safari.** iOS Safari's rubber-band overscroll reveals whatever is behind the page content when you scroll past the top or bottom. On the marketing page, that used to be a flash of white — because the brand orange only covered the visible content, not the browser's own background. Fixed by syncing the `<html>`/`<body>` background colour to the brand orange while the page is mounted, so the bounce reveals more orange instead of white.
+
+**Auto-growing text areas that survive font loading.** Long questions in Settings use a textarea that grows to fit their content. On first load, the height was sometimes calculated a beat too early — before the web font finished loading — so a two-line question would get measured as one line and its second line would be clipped. Fixed by re-measuring once `document.fonts.ready` resolves, so the box is always sized for the font that's actually rendered, not a fallback.
+
 ---
 
 ## Stack

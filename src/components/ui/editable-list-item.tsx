@@ -36,14 +36,19 @@ export function EditableListItem({
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
     if (el) {
-      el.style.height = "auto";
+      el.style.height = "0px";
       el.style.height = el.scrollHeight + "px";
     }
   }, []);
 
   useEffect(() => {
     autoResize();
-  }, [autoResize]);
+    // Re-measure once web fonts finish loading — initial layout can use
+    // fallback font metrics, under-measuring wrapped multiline text.
+    if (typeof document !== "undefined" && "fonts" in document) {
+      document.fonts.ready.then(autoResize);
+    }
+  }, [autoResize, editValue]);
 
   useEffect(() => {
     return () => {
