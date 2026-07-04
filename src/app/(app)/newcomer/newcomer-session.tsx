@@ -61,11 +61,11 @@ export function NewcomerSession({
         </p>
 
         {!isStarted && (
-          <div className="mt-6 lg:mt-10">
+          <div className="mt-6 flex w-full flex-col items-center lg:mt-10">
             <button
               onClick={nextSpeaker}
               disabled={members.length === 0}
-              className="min-h-[44px] rounded-button bg-secondary px-8 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50"
+              className="min-h-[44px] w-full rounded-button bg-secondary px-8 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50 sm:w-auto"
             >
               Start<span className="hidden lg:inline"> (N)</span>
             </button>

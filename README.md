@@ -2,7 +2,7 @@
 
 A free app for running daily standup meetings and newcomer introductions. It works in the browser, and you can install it on your phone's home screen — no app store needed.
 
-**From design to working app: ~1 day.**
+**Live at [dailymaster.online](https://dailymaster.online). From design to working app: ~1 day.**
 
 ---
 
@@ -25,6 +25,10 @@ This is the third attempt. The first two didn't get far — wrong tools, no clea
 ---
 
 ## How it works
+
+### Step 0 — The landing page knows you
+
+Visiting the site logged out shows a marketing page — orange brand background, white logo, the benefits at a glance, and a single "Start for free" call to action. Visiting it with an active session skips the pitch entirely and takes you straight to your standup. You never see marketing for a product you already use.
 
 ### Step 1 — Sign up and set up your team
 
@@ -74,7 +78,7 @@ Since DailyMaster is a PWA (Progressive Web App — a website that behaves like 
 
 **Multiline question editing.** Standup and newcomer questions use auto-resizing text areas instead of single-line inputs. Long questions like "If you could have dinner with anyone, living or dead, who would it be?" are fully visible while editing — no truncation, no horizontal scrolling.
 
-**35 built-in icebreaker questions.** The newcomer settings page has an "Add a random icebreaker" button with a spinning animation. It pulls from a curated pool of 35 questions — a mix of food debates, hypothetical scenarios, and personality questions. The pool filters out questions you've already added, so you never get duplicates.
+**100 built-in icebreaker questions.** The newcomer settings page has an "Add a random icebreaker" button with a spinning animation. It pulls from a curated pool of 100 questions — food debates, hypothetical scenarios, this-or-that picks, and quirky opinions — checked for semantic duplicates, so "What's your favorite season?" and "Summer or winter?" never both appear. The pool also filters out questions you've already added.
 
 **Consistent design tokens.** Every border radius, colour, and spacing value comes from a shared set of CSS variables. Four radius values across the entire app: 6px for inputs, 8px for buttons, 12px for cards, 20px for pills. This means every element looks like it belongs to the same design system, even though many were built at different times.
 
