@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef } from "react";
 import { Trash2, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,31 +31,6 @@ export function EditableListItem({
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const autoResize = useCallback(() => {
-    const el = textareaRef.current;
-    if (el) {
-      el.style.height = "0px";
-      el.style.height = el.scrollHeight + "px";
-    }
-  }, []);
-
-  useEffect(() => {
-    autoResize();
-    // Re-measure once web fonts finish loading — initial layout can use
-    // fallback font metrics, under-measuring wrapped multiline text.
-    if (typeof document !== "undefined" && "fonts" in document) {
-      document.fonts.ready.then(autoResize);
-    }
-  }, [autoResize, editValue]);
-
-  useEffect(() => {
-    return () => {
-      if (deleteTimer.current) clearTimeout(deleteTimer.current);
-      if (countdownTimer.current) clearInterval(countdownTimer.current);
-    };
-  }, []);
 
   function scheduleAutosave(newValue: string, newSecondary: string) {
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
@@ -132,24 +107,27 @@ export function EditableListItem({
     <div className={cn("flex items-center gap-2", className)}>
       <div className={cn("flex flex-1 gap-2", multiline ? "flex-col sm:flex-row" : "")}>
         {multiline ? (
-          <textarea
-            ref={textareaRef}
-            value={editValue}
-            rows={1}
-            onChange={(e) => {
-              setEditValue(e.target.value);
-              scheduleAutosave(e.target.value, editSecondary);
-              autoResize();
-            }}
-            onBlur={() => handleBlur(editValue, editSecondary)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                e.currentTarget.blur();
-              }
-            }}
-            className={cn(inputClasses, "resize-none overflow-hidden")}
-          />
+          <div
+            className="grow-wrap min-h-[44px] flex-1 rounded-input border border-border bg-background text-sm transition-colors focus-within:border-primary"
+            data-replicated-value={editValue}
+          >
+            <textarea
+              value={editValue}
+              rows={1}
+              onChange={(e) => {
+                setEditValue(e.target.value);
+                scheduleAutosave(e.target.value, editSecondary);
+              }}
+              onBlur={() => handleBlur(editValue, editSecondary)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                }
+              }}
+              className="w-full border-0 bg-transparent px-3 py-2.5 text-sm outline-none"
+            />
+          </div>
         ) : (
           <input
             value={editValue}

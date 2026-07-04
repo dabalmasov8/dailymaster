@@ -151,3 +151,32 @@
     @apply font-sans antialiased;
   }
 }
+
+@layer components {
+  /* Auto-growing textarea via CSS grid: an invisible mirror of the value
+     (the ::after pseudo-element) and the textarea share the same grid cell,
+     so the row height always matches the mirror's natural size. No JS
+     measurement, so there's no race with font loading, hydration, etc. */
+  .grow-wrap {
+    display: grid;
+  }
+
+  .grow-wrap::after {
+    content: attr(data-replicated-value) " ";
+    white-space: pre-wrap;
+    visibility: hidden;
+    padding: 0.625rem 0.75rem;
+    font: inherit;
+    word-break: break-word;
+  }
+
+  .grow-wrap > textarea {
+    resize: none;
+    overflow: hidden;
+  }
+
+  .grow-wrap::after,
+  .grow-wrap > textarea {
+    grid-area: 1 / 1 / 2 / 2;
+  }
+}
