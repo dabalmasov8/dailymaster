@@ -72,41 +72,7 @@ Since DailyMaster is a PWA (Progressive Web App — a website that behaves like 
 
 **Inline edit with autosave.** No pencil icons, no "edit mode." Every field in Settings is always editable — just click and type. Changes save automatically after 600 milliseconds of inactivity, or immediately when you click away. If you clear a field and leave, it reverts to the previous value instead of saving an empty string. This removes an entire layer of UI (edit buttons, save buttons, cancel buttons) without losing any functionality.
 
-**Button visual hierarchy.** During a standup, three actions compete for attention: marking a blocker (urgent, red), marking capacity (important, navy), and moving to the next speaker (routine, outlined). The colour hierarchy makes the destructive action (blocker) visually distinct from the routine one (next). The "Copy standup notes" button uses the primary orange — separate from all action buttons — so it reads as a utility, not a meeting control.
-
-**Responsive mobile-first design.** The app was designed for desktop first (Figma), then reworked for mobile PWA. Header collapses into a hamburger menu with 44px WCAG touch targets. Settings tabs become a segmented control with icons. Standup questions and action buttons stack vertically. Keyboard shortcut hints are hidden on mobile since they don't apply. The "Copy standup notes" button is positioned above the blockers/capacity lists so it's not blocked by the iPhone home bar gesture area.
-
-**Multiline question editing.** Standup and newcomer questions use auto-resizing text areas instead of single-line inputs. Long questions like "If you could have dinner with anyone, living or dead, who would it be?" are fully visible while editing — no truncation, no horizontal scrolling.
-
 **100 built-in icebreaker questions.** The newcomer settings page has an "Add a random icebreaker" button with a spinning animation. It pulls from a curated pool of 100 questions — food debates, hypothetical scenarios, this-or-that picks, and quirky opinions — checked for semantic duplicates, so "What's your favorite season?" and "Summer or winter?" never both appear. The pool also filters out questions you've already added.
-
-**Consistent design tokens.** Every border radius, colour, and spacing value comes from a shared set of CSS variables. Four radius values across the entire app: 6px for inputs, 8px for buttons, 12px for cards, 20px for pills. This means every element looks like it belongs to the same design system, even though many were built at different times.
-
-**One clear call to action, not three.** The first version of the marketing page had "Sign-up / Login" in the header, "Start for free" in the hero, and a second "Sign-up / Login" at the bottom — three different labels asking for the same click. I collapsed it to a single message: a quiet "Log in" for people who already have an account (header, low visual weight), and "Start for free" repeated once at the top and once at the bottom for new visitors. Same number of buttons, one message.
-
-**Screenshots paired with the benefit they prove.** Rather than a wall of icons and adjectives, the marketing page alternates text and a real screenshot for each feature — the actual timer, the actual copy-notes button, the actual icebreaker picker. Claims are easier to trust when you can see the interface behind them. All screenshots use the same 12px card radius as the rest of the design system, so they read as part of the product, not stock photography.
-
-**No white flash on mobile Safari.** iOS Safari's rubber-band overscroll reveals whatever is behind the page content when you scroll past the top or bottom. On the marketing page, that used to be a flash of white — because the brand orange only covered the visible content, not the browser's own background. Fixed by syncing the `<html>`/`<body>` background colour to the brand orange while the page is mounted, so the bounce reveals more orange instead of white.
-
-**Auto-growing text areas, sized by the browser instead of JavaScript.** Long questions in Settings use a textarea that grows to fit their content. My first attempt measured the content's height in JavaScript (`scrollHeight`) and set it as an inline style — that approach kept clipping the last line of two-line questions on mobile, and re-measuring on font-load events didn't fix it reliably. I replaced it with a pure-CSS technique: an invisible copy of the text sits in a `::after` pseudo-element sharing a CSS grid cell with the real textarea, and the grid row auto-sizes to fit whichever is taller. There's no JavaScript measurement at all, so there's no race to get wrong — the browser's own layout engine keeps it correct on every reflow, including font swaps.
-
----
-
-## Stack
-
-| What | Technology | Why |
-|---|---|---|
-| App framework | Next.js 15 + React 19 | Fast page loads, built-in support for the hosting platform |
-| Language | TypeScript | JavaScript with type checking — catches bugs before they reach users |
-| Design system | Tailwind CSS + shadcn/ui | Pre-built components that match the visual design, easy to customise |
-| User accounts | Clerk | Free for up to 10,000 users, handles login and sign-up with no custom code |
-| Database | Neon (cloud PostgreSQL database) | Free tier, stores all user data — team members, questions, settings |
-| Database toolkit | Prisma | Translates between the app code and the database safely |
-| Installable app | @serwist/next | Makes the website installable on phones as a home screen app |
-| Display font | Blackout Midnight | Bold font used for the timer and welcome heading |
-| Hosting | Vercel | Free tier, automatically publishes new versions when code is updated |
-
-**Total monthly cost: $0.** Every service is on its free tier. No credit card required.
 
 ---
 
@@ -119,6 +85,8 @@ Since DailyMaster is a PWA (Progressive Web App — a website that behaves like 
 | Clerk user accounts (free tier, up to 10,000 users) | $0/month |
 | Custom domain (optional) | ~$12/year |
 | **Total** | **$0/month** |
+
+**Total monthly cost: $0.** Every service is on its free tier. No credit card required.
 
 ---
 
