@@ -126,7 +126,7 @@ Every standup you run now gets logged — start time, end time, who spoke, who w
 
 ### Step 7 — Connect an AI assistant
 
-**Claude.ai (Connectors):** add `https://dailymaster.online` as a custom connector. It signs you in and shows a consent screen — no token to copy.
+**Claude.ai (Connectors):** add `https://dailymaster.online/api/mcp` as a custom connector — the full path, not just the domain. It signs you in and shows a consent screen — no token to copy.
 
 **Claude Desktop, Claude Code, or any other MCP client:** go to Settings → MCP and generate a token — it's shown once, so copy it somewhere safe. Add `https://dailymaster.online/api/mcp` as an MCP server with that token as a Bearer credential.
 

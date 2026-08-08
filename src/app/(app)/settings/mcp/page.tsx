@@ -45,9 +45,14 @@ export default async function McpSettingsPage() {
       <section>
         <h2 className="mb-2 text-sm font-semibold">Claude.ai Connectors</h2>
         <p className="mb-3 text-sm text-muted-foreground">
-          Add <code className="rounded-input bg-muted px-1.5 py-0.5 text-xs">https://dailymaster.online</code>{" "}
+          Add{" "}
+          <code className="rounded-input bg-muted px-1.5 py-0.5 text-xs">
+            https://dailymaster.online/api/mcp
+          </code>{" "}
           as a custom connector in Claude.ai — it will sign you in and ask you to
-          approve access, no token to copy.
+          approve access, no token to copy. Use this exact URL, not just the
+          domain — the sign-in step happens automatically, but the connection
+          itself is at <code className="rounded-input bg-muted px-1 py-0.5 text-xs">/api/mcp</code>.
         </p>
       </section>
 
