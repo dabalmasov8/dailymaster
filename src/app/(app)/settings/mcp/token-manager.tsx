@@ -79,7 +79,7 @@ export function TokenManager({ initialTokens }: { initialTokens: TokenSummary[] 
             </code>
             <button
               onClick={handleCopy}
-              className="flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-button border border-primary px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
+              className="flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-button border border-primary px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
             >
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               {copied ? "Copied" : "Copy"}
@@ -87,7 +87,7 @@ export function TokenManager({ initialTokens }: { initialTokens: TokenSummary[] 
           </div>
           <button
             onClick={() => setRevealedToken(null)}
-            className="mt-3 min-h-[36px] rounded-button px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+            className="mt-3 min-h-[36px] rounded-button px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95"
           >
             Done
           </button>
@@ -119,7 +119,7 @@ export function TokenManager({ initialTokens }: { initialTokens: TokenSummary[] 
               </div>
               <button
                 onClick={() => handleRevoke(t.id)}
-                className="flex min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-input text-muted-foreground hover:bg-background hover:text-destructive"
+                className="flex min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-background hover:text-destructive active:scale-90"
                 aria-label="Revoke token"
               >
                 <Trash2 className="h-4 w-4" />
@@ -134,12 +134,12 @@ export function TokenManager({ initialTokens }: { initialTokens: TokenSummary[] 
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Token name (e.g. Claude Desktop)"
-          className="min-h-[44px] flex-1 rounded-input border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+          className="min-h-[44px] flex-1 rounded-input border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground transition-colors hover:border-foreground/30 focus:border-primary focus:outline-none"
         />
         <button
           onClick={handleCreate}
           disabled={creating}
-          className="flex min-h-[44px] items-center justify-center gap-2 rounded-button bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 disabled:opacity-60"
+          className="flex min-h-[44px] items-center justify-center gap-2 rounded-button bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/90 active:scale-[0.98] disabled:opacity-60"
         >
           <Plus className="h-4 w-4" />
           {creating ? "Generating..." : "Generate token"}

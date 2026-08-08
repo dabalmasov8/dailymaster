@@ -24,6 +24,12 @@ export interface SessionParticipant {
 
 export type BlockerStatus = "new" | "in_progress" | "resolved" | "wont_fix";
 
+export interface BlockerComment {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface BlockerRecord {
   id: string;
   memberId: string;
@@ -33,13 +39,5 @@ export interface BlockerRecord {
   reportedAt: string;
   resolvedAt: string | null;
   resolutionNote: string;
-}
-
-export interface CapacityOfferRecord {
-  id: string;
-  memberId: string;
-  memberName: string;
-  reportedAt: string;
-  claimed: boolean;
-  claimedAt: string | null;
+  comments: BlockerComment[];
 }

@@ -82,7 +82,7 @@ export function AppHeader() {
         {/* Mobile hamburger */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="flex h-11 w-11 items-center justify-center rounded-button sm:hidden"
+          className="flex h-11 w-11 items-center justify-center rounded-button transition-colors hover:bg-muted active:scale-95 sm:hidden"
           aria-label={menuOpen ? "Close menu" : "Open menu"}
         >
           {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}

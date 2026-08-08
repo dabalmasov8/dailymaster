@@ -91,7 +91,7 @@ export function EditableListItem({
         <span className="text-sm text-muted-foreground line-through">{value}</span>
         <button
           onClick={handleUndo}
-          className="flex min-h-[44px] items-center gap-1.5 px-2 text-sm font-medium text-primary hover:text-primary/80"
+          className="flex min-h-[44px] items-center gap-1.5 rounded-input px-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 hover:text-primary/80 active:scale-95"
         >
           <Undo2 className="h-3.5 w-3.5" />
           Undo ({countdown}s)
@@ -101,14 +101,14 @@ export function EditableListItem({
   }
 
   const inputClasses =
-    "min-h-[44px] flex-1 rounded-input border border-border bg-background px-3 py-2.5 text-sm transition-colors focus:border-primary focus:outline-none";
+    "min-h-[44px] flex-1 rounded-input border border-border bg-background px-3 py-2.5 text-sm transition-colors hover:border-foreground/30 focus:border-primary focus:outline-none";
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <div className={cn("flex flex-1 gap-2", multiline ? "flex-col sm:flex-row" : "")}>
         {multiline ? (
           <div
-            className="grow-wrap min-h-[44px] flex-1 rounded-input border border-border bg-background text-sm transition-colors focus-within:border-primary"
+            className="grow-wrap min-h-[44px] flex-1 rounded-input border border-border bg-background text-sm transition-colors hover:border-foreground/30 focus-within:border-primary"
             data-replicated-value={editValue}
           >
             <textarea
@@ -158,13 +158,13 @@ export function EditableListItem({
               }
             }}
             placeholder={secondaryPlaceholder}
-            className="min-h-[44px] rounded-input border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground transition-colors focus:border-primary focus:outline-none sm:w-40"
+            className="min-h-[44px] rounded-input border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground transition-colors hover:border-foreground/30 focus:border-primary focus:outline-none sm:w-40"
           />
         )}
       </div>
       <button
         onClick={handleDelete}
-        className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-input text-muted-foreground hover:bg-muted hover:text-destructive"
+        className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-muted hover:text-destructive active:scale-90"
         aria-label="Delete"
       >
         <Trash2 className="h-4 w-4" />

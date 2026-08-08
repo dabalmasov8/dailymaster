@@ -87,7 +87,7 @@ export function AddItemInput({
     <button
       onClick={() => setAdding(true)}
       className={cn(
-        "flex min-h-[44px] w-fit items-center gap-2 rounded-button border border-dashed border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary",
+        "flex min-h-[44px] w-fit items-center gap-2 rounded-button border border-dashed border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary active:scale-[0.98]",
         className,
       )}
     >

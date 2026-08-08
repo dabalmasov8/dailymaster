@@ -65,7 +65,7 @@ export function NewcomerSession({
             <button
               onClick={nextSpeaker}
               disabled={members.length === 0}
-              className="min-h-[44px] w-full rounded-button bg-secondary px-8 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50 sm:w-auto"
+              className="min-h-[44px] w-full rounded-button bg-secondary px-8 py-3 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/90 active:scale-[0.98] disabled:opacity-50 sm:w-auto"
             >
               Start<span className="hidden lg:inline"> (N)</span>
             </button>
@@ -92,7 +92,7 @@ export function NewcomerSession({
             <h2 className="mt-1 text-3xl font-bold lg:mt-2 lg:text-4xl">{currentSpeaker.name}</h2>
             <button
               onClick={nextSpeaker}
-              className="mt-4 min-h-[44px] rounded-button bg-secondary px-8 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 lg:mt-6"
+              className="mt-4 min-h-[44px] rounded-button bg-secondary px-8 py-3 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/90 active:scale-[0.98] lg:mt-6"
             >
               Next speaker<span className="hidden lg:inline"> (N)</span>
             </button>
@@ -104,7 +104,7 @@ export function NewcomerSession({
             <h2 className="mt-4 text-2xl font-bold lg:mt-8 lg:text-3xl">All done!</h2>
             <button
               onClick={() => setCurrentIndex(-1)}
-              className="mt-4 min-h-[44px] rounded-button bg-secondary px-8 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 lg:mt-6"
+              className="mt-4 min-h-[44px] rounded-button bg-secondary px-8 py-3 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/90 active:scale-[0.98] lg:mt-6"
             >
               Start over
             </button>

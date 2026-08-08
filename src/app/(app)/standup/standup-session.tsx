@@ -1,7 +1,7 @@
 "use client";
 
 import { useReducer, useEffect, useCallback, useRef, useState } from "react";
-import { Shuffle, ListOrdered, Trash2, ClipboardCheck, FileText, Check } from "lucide-react";
+import { Shuffle, ListOrdered, Trash2, ClipboardCheck, FileText, MessageSquarePlus } from "lucide-react";
 import { TimerDisplay } from "@/components/ui/timer-display";
 import { cn } from "@/lib/utils";
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut";
@@ -12,7 +12,6 @@ import {
   updateBlockerNote,
   deleteBlocker,
   reportCapacity,
-  claimCapacity,
   deleteCapacityOffer,
 } from "./actions";
 import type { TeamMember, Question } from "@/types";
@@ -38,7 +37,6 @@ type CapacityEntry = {
   dbId: string | null;
   memberId: string;
   name: string;
-  claimed: boolean;
 };
 
 type StandupState = {
@@ -52,10 +50,12 @@ type StandupState = {
   isShuffled: boolean;
   speakerLog: LoggedSpeaker[];
   absentIds: string[];
+  attendanceConfirmed: boolean;
 };
 
 type StandupAction =
   | { type: "TOGGLE_ABSENT"; id: string }
+  | { type: "CONFIRM_ATTENDANCE" }
   | { type: "START_DEFAULT"; speakers: TeamMember[]; timePerSpeaker: number }
   | { type: "START_SHUFFLED"; speakers: TeamMember[]; timePerSpeaker: number }
   | { type: "TICK" }
@@ -65,10 +65,10 @@ type StandupAction =
   | { type: "SET_BLOCKER_DB_ID"; localId: string; dbId: string }
   | { type: "SET_CAPACITY_DB_ID"; localId: string; dbId: string }
   | { type: "UPDATE_BLOCKER_NOTE"; id: string; note: string }
-  | { type: "TOGGLE_CAPACITY_CLAIMED"; id: string }
   | { type: "REMOVE_BLOCKER"; id: string }
   | { type: "REMOVE_CAPACITY"; id: string }
-  | { type: "END_STANDUP" };
+  | { type: "END_STANDUP" }
+  | { type: "RETURN_TO_IDLE" };
 
 function shuffleArray<T>(arr: T[]): T[] {
   const shuffled = [...arr];
@@ -102,7 +102,10 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
         absentIds: state.absentIds.includes(action.id)
           ? state.absentIds.filter((id) => id !== action.id)
           : [...state.absentIds, action.id],
+        attendanceConfirmed: false,
       };
+    case "CONFIRM_ATTENDANCE":
+      return { ...state, attendanceConfirmed: true };
     case "START_DEFAULT":
       return {
         ...state,
@@ -115,6 +118,7 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
         capacity: [],
         isShuffled: false,
         speakerLog: [],
+        attendanceConfirmed: false,
       };
     case "START_SHUFFLED":
       return {
@@ -128,6 +132,7 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
         capacity: [],
         isShuffled: true,
         speakerLog: [],
+        attendanceConfirmed: false,
       };
     case "TICK": {
       if (state.timeLeft <= 1) {
@@ -174,7 +179,7 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
         ...state,
         capacity: [
           ...state.capacity,
-          { id: action.localId, dbId: null, memberId: speaker.id, name: speaker.name, claimed: false },
+          { id: action.localId, dbId: null, memberId: speaker.id, name: speaker.name },
         ],
       };
     }
@@ -199,13 +204,6 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
           b.id === action.id ? { ...b, note: action.note } : b,
         ),
       };
-    case "TOGGLE_CAPACITY_CLAIMED":
-      return {
-        ...state,
-        capacity: state.capacity.map((c) =>
-          c.id === action.id ? { ...c, claimed: !c.claimed } : c,
-        ),
-      };
     case "REMOVE_BLOCKER":
       return {
         ...state,
@@ -220,6 +218,8 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
       const speakerLog = logCurrentSpeaker(state);
       return { ...state, phase: "complete", timeLeft: 0, speakerLog };
     }
+    case "RETURN_TO_IDLE":
+      return { ...state, phase: "idle", attendanceConfirmed: false };
     default:
       return state;
   }
@@ -236,6 +236,7 @@ const initialState: StandupState = {
   isShuffled: false,
   speakerLog: [],
   absentIds: [],
+  attendanceConfirmed: false,
 };
 
 function formatDate(): string {
@@ -315,6 +316,7 @@ export function StandupSession({
       const key = e.key.toLowerCase();
 
       if (state.phase === "idle") {
+        if (!state.attendanceConfirmed) return;
         if (key === "d") startSession("default", presentMembers);
         else if (key === "s") startSession("shuffled", presentMembers);
       } else if (state.phase === "active") {
@@ -325,7 +327,7 @@ export function StandupSession({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state.phase, presentMembers, timePerSpeaker],
+    [state.phase, state.attendanceConfirmed, presentMembers, timePerSpeaker],
   );
 
   useEffect(() => {
@@ -377,11 +379,6 @@ export function StandupSession({
     noteTimers.current[blockerId] = setTimeout(() => {
       updateBlockerNote(dbId, note);
     }, 600);
-  }
-
-  function handleToggleClaimed(entry: CapacityEntry) {
-    dispatch({ type: "TOGGLE_CAPACITY_CLAIMED", id: entry.id });
-    if (entry.dbId) claimCapacity(entry.dbId, !entry.claimed);
   }
 
   function handleRemoveBlocker(entry: BlockerEntry) {
@@ -488,10 +485,10 @@ export function StandupSession({
                         key={m.id}
                         onClick={() => dispatch({ type: "TOGGLE_ABSENT", id: m.id })}
                         className={cn(
-                          "min-h-[36px] rounded-pill border px-3 py-1.5 text-xs font-medium transition-colors",
+                          "min-h-[36px] rounded-pill border px-3 py-1.5 text-xs font-medium transition-colors active:scale-95",
                           absent
-                            ? "border-border text-muted-foreground line-through"
-                            : "border-secondary bg-secondary/10 text-secondary",
+                            ? "border-border text-muted-foreground line-through hover:border-foreground/40 hover:bg-muted hover:text-foreground"
+                            : "border-secondary bg-secondary/10 text-secondary hover:bg-secondary/20",
                         )}
                       >
                         {m.name}
@@ -499,25 +496,46 @@ export function StandupSession({
                     );
                   })}
                 </div>
+
+                <div className="mt-3 flex justify-center">
+                  {state.attendanceConfirmed ? (
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-secondary">
+                      <ClipboardCheck className="h-3.5 w-3.5" />
+                      Attendance confirmed
+                    </p>
+                  ) : (
+                    <button
+                      onClick={() => dispatch({ type: "CONFIRM_ATTENDANCE" })}
+                      className="min-h-[36px] rounded-button border border-primary px-4 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
+                    >
+                      Confirm attendance
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
             <div className="mt-4 flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-4 lg:mt-8">
               <button
                 onClick={() => startSession("default", presentMembers)}
-                disabled={presentMembers.length === 0}
-                className="min-h-[44px] rounded-button border border-secondary px-6 py-3 text-sm font-medium text-secondary hover:bg-secondary hover:text-secondary-foreground disabled:opacity-50"
+                disabled={presentMembers.length === 0 || !state.attendanceConfirmed}
+                className="min-h-[44px] rounded-button border border-secondary px-6 py-3 text-sm font-medium text-secondary transition-all hover:bg-secondary hover:text-secondary-foreground active:scale-[0.98] disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-secondary disabled:active:scale-100"
               >
                 Default order<span className="hidden lg:inline"> (D)</span>
               </button>
               <button
                 onClick={() => startSession("shuffled", presentMembers)}
-                disabled={presentMembers.length === 0}
-                className="min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50"
+                disabled={presentMembers.length === 0 || !state.attendanceConfirmed}
+                className="min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground transition-all hover:bg-secondary/90 active:scale-[0.98] disabled:opacity-50 disabled:hover:bg-secondary disabled:active:scale-100"
               >
                 Shuffled order<span className="hidden lg:inline"> (S)</span>
               </button>
             </div>
+            {members.length > 0 && !state.attendanceConfirmed && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Confirm who&apos;s here before starting.
+              </p>
+            )}
             {members.length === 0 && (
               <p className="mt-4 text-base text-muted-foreground lg:mt-6">
                 Add participants in{" "}
@@ -563,19 +581,19 @@ export function StandupSession({
             <div className="mt-4 flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-4 lg:mt-8">
               <button
                 onClick={handleMarkBlocker}
-                className="min-h-[44px] rounded-button bg-destructive px-6 py-3 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
+                className="min-h-[44px] rounded-button bg-destructive px-6 py-3 text-sm font-medium text-destructive-foreground transition-all hover:bg-destructive/90 active:scale-[0.98]"
               >
                 Mark blocker<span className="hidden lg:inline"> (B)</span>
               </button>
               <button
                 onClick={handleMarkCapacity}
-                className="min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90"
+                className="min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground transition-all hover:bg-secondary/90 active:scale-[0.98]"
               >
                 Mark capacity<span className="hidden lg:inline"> (C)</span>
               </button>
               <button
                 onClick={() => dispatch({ type: "NEXT_SPEAKER" })}
-                className="min-h-[44px] rounded-button border border-secondary px-6 py-3 text-sm font-medium text-secondary hover:bg-secondary hover:text-secondary-foreground"
+                className="min-h-[44px] rounded-button border border-secondary px-6 py-3 text-sm font-medium text-secondary transition-all hover:bg-secondary hover:text-secondary-foreground active:scale-[0.98]"
               >
                 Next speaker<span className="hidden lg:inline"> (N)</span>
               </button>
@@ -589,8 +607,8 @@ export function StandupSession({
             <h1 className="mt-1 text-2xl font-bold lg:mt-2 lg:text-3xl">Great job, team!</h1>
             <TimerDisplay minutes={0} seconds={0} className="mt-4 lg:mt-8" />
             <button
-              onClick={() => startSession("default", presentMembers)}
-              className="mt-4 min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 lg:mt-8"
+              onClick={() => dispatch({ type: "RETURN_TO_IDLE" })}
+              className="mt-4 min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground transition-all hover:bg-secondary/90 active:scale-[0.98] lg:mt-8"
             >
               Start new standup
             </button>
@@ -638,18 +656,21 @@ export function StandupSession({
                     <span className="text-sm">{b.name}</span>
                     <button
                       onClick={() => handleRemoveBlocker(b)}
-                      className="flex min-h-[32px] min-w-[32px] items-center justify-center text-muted-foreground hover:text-destructive"
+                      className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-background hover:text-destructive active:scale-90"
                       aria-label="Remove blocker"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                  <input
-                    value={b.note}
-                    onChange={(e) => handleNoteChange(b.id, b.dbId, e.target.value)}
-                    placeholder="Add a note (optional)"
-                    className="mt-1 min-h-[32px] w-full rounded-input border border-border bg-background px-2 py-1 text-xs placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-                  />
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <MessageSquarePlus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <input
+                      value={b.note}
+                      onChange={(e) => handleNoteChange(b.id, b.dbId, e.target.value)}
+                      placeholder="What's blocking them?"
+                      className="min-h-[32px] w-full rounded-input border border-border bg-background px-2 py-1 text-xs placeholder:text-muted-foreground transition-colors hover:border-foreground/30 focus:border-primary focus:outline-none"
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -669,28 +690,10 @@ export function StandupSession({
                   key={c.id}
                   className="flex items-center justify-between gap-2 rounded-input bg-muted px-3 py-2"
                 >
-                  <button
-                    onClick={() => handleToggleClaimed(c)}
-                    disabled={!c.dbId}
-                    className="flex min-h-[32px] flex-1 items-center gap-2 text-left disabled:opacity-60"
-                  >
-                    <span
-                      className={cn(
-                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border",
-                        c.claimed
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border",
-                      )}
-                    >
-                      {c.claimed && <Check className="h-3 w-3" />}
-                    </span>
-                    <span className={cn("text-sm", c.claimed && "text-muted-foreground line-through")}>
-                      {c.name}
-                    </span>
-                  </button>
+                  <span className="min-h-[32px] flex-1 text-sm leading-[32px]">{c.name}</span>
                   <button
                     onClick={() => handleRemoveCapacity(c)}
-                    className="flex min-h-[32px] min-w-[32px] items-center justify-center text-muted-foreground hover:text-destructive"
+                    className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-background hover:text-destructive active:scale-90"
                     aria-label="Remove capacity"
                   >
                     <Trash2 className="h-3.5 w-3.5" />

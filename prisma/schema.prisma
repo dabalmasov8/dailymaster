@@ -91,7 +91,20 @@ model Blocker {
   resolvedAt     DateTime?
   resolutionNote String          @default("")
 
+  comments BlockerComment[]
+
   @@index([userId, status])
+}
+
+model BlockerComment {
+  id        String   @id @default(cuid())
+  blockerId String
+  blocker   Blocker  @relation(fields: [blockerId], references: [id], onDelete: Cascade)
+  userId    String
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([blockerId])
 }
 
 model CapacityOffer {

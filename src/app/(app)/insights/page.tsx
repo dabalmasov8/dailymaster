@@ -18,7 +18,11 @@ export default async function InsightsPage() {
       orderBy: { startedAt: "desc" },
       take: 30,
     }),
-    db.blocker.findMany({ where: { userId: user.id }, orderBy: { reportedAt: "desc" } }),
+    db.blocker.findMany({
+      where: { userId: user.id },
+      orderBy: { reportedAt: "desc" },
+      include: { comments: { orderBy: { createdAt: "asc" } } },
+    }),
     db.capacityOffer.findMany({ where: { userId: user.id }, orderBy: { reportedAt: "desc" } }),
   ]);
 
@@ -80,13 +84,6 @@ export default async function InsightsPage() {
       )
     : 0;
 
-  // --- Capacity utilization ---
-  const totalCapacity = capacityOffers.length;
-  const claimedCapacity = capacityOffers.filter((c) => c.claimed).length;
-  const utilizationPct = totalCapacity
-    ? Math.round((claimedCapacity / totalCapacity) * 100)
-    : 0;
-
   // --- Weekly digest ---
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const weekSessions = sessions.filter((s) => s.startedAt >= weekAgo);
@@ -95,9 +92,6 @@ export default async function InsightsPage() {
     (b) => b.resolvedAt && b.resolvedAt >= weekAgo,
   ).length;
   const weekCapacityOffered = capacityOffers.filter((c) => c.reportedAt >= weekAgo).length;
-  const weekCapacityClaimed = capacityOffers.filter(
-    (c) => c.claimed && c.claimedAt && c.claimedAt >= weekAgo,
-  ).length;
   const weekAvgDuration = weekSessions.length
     ? weekSessions.reduce(
         (sum, s) =>
@@ -115,6 +109,11 @@ export default async function InsightsPage() {
     reportedAt: b.reportedAt.toISOString(),
     resolvedAt: b.resolvedAt ? b.resolvedAt.toISOString() : null,
     resolutionNote: b.resolutionNote,
+    comments: b.comments.map((c) => ({
+      id: c.id,
+      text: c.text,
+      createdAt: c.createdAt.toISOString(),
+    })),
   }));
 
   if (!hasData) {
@@ -123,110 +122,109 @@ export default async function InsightsPage() {
         <h1 className="text-2xl font-bold">Insights</h1>
         <p className="mt-2 max-w-md text-sm text-muted-foreground">
           Run a few standups and this page will fill in with trends —
-          average duration, who runs over time, open blockers, and how much
-          offered capacity actually gets used.
+          average duration, who runs over time, open blockers, and more.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-8 px-4 py-6 sm:px-10 sm:py-10">
-      <h1 className="text-2xl font-bold sm:text-3xl">Insights</h1>
+    <div className="flex flex-col gap-6 px-4 py-5 sm:px-8 sm:py-6">
+      <h1 className="text-xl font-bold sm:text-2xl">Insights</h1>
 
-      {/* Weekly digest */}
-      <section className="rounded-card bg-card p-4 sm:p-6">
-        <h2 className="text-sm font-semibold">This week</h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {weekSessions.length} standup{weekSessions.length === 1 ? "" : "s"}, averaging{" "}
-          {weekAvgDuration.toFixed(1)} min.{" "}
-          {weekBlockersOpened} blocker{weekBlockersOpened === 1 ? "" : "s"} reported,{" "}
-          {weekBlockersResolved} resolved.{" "}
-          {weekCapacityOffered} capacity offer{weekCapacityOffered === 1 ? "" : "s"},{" "}
-          {weekCapacityClaimed} claimed.
-        </p>
-      </section>
-
-      {/* Summary cards */}
-      <section className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-card bg-card p-4">
+      {/* Digest + summary cards, one row */}
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-card bg-card p-3 lg:col-span-1">
+          <p className="text-xs font-medium text-muted-foreground">This week</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            {weekSessions.length} standup{weekSessions.length === 1 ? "" : "s"},{" "}
+            {weekAvgDuration.toFixed(1)} min avg · {weekBlockersOpened} opened,{" "}
+            {weekBlockersResolved} resolved · {weekCapacityOffered} capacity offer
+            {weekCapacityOffered === 1 ? "" : "s"}
+          </p>
+        </div>
+        <div className="rounded-card bg-card p-3">
           <p className="text-xs font-medium text-muted-foreground">Average duration</p>
-          <p className="mt-1 text-2xl font-bold">{avgDuration.toFixed(1)} min</p>
+          <p className="mt-1 text-xl font-bold">{avgDuration.toFixed(1)} min</p>
           <p className="text-xs text-muted-foreground">last {durations.length} standups</p>
         </div>
-        <div className="rounded-card bg-card p-4">
+        <div className="rounded-card bg-card p-3">
           <p className="text-xs font-medium text-muted-foreground">Open blockers</p>
-          <p className="mt-1 text-2xl font-bold">{openBlockers.length}</p>
+          <p className="mt-1 text-xl font-bold">{openBlockers.length}</p>
           <p className="text-xs text-muted-foreground">
             {openBlockers.length > 0 ? `oldest ${oldestOpenDays}d ago` : "none open"}
           </p>
         </div>
-        <div className="rounded-card bg-card p-4">
-          <p className="text-xs font-medium text-muted-foreground">Capacity utilization</p>
-          <p className="mt-1 text-2xl font-bold">{utilizationPct}%</p>
-          <p className="text-xs text-muted-foreground">
-            {claimedCapacity} of {totalCapacity} offers claimed
-          </p>
+        <div className="rounded-card bg-card p-3">
+          <p className="text-xs font-medium text-muted-foreground">Total standups</p>
+          <p className="mt-1 text-xl font-bold">{sessions.length}</p>
+          <p className="text-xs text-muted-foreground">last 30 days</p>
         </div>
       </section>
 
-      {/* Duration trend */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold">Standup duration trend</h2>
-        <div className="flex flex-col gap-1.5 rounded-card bg-card p-4">
-          {durations.map((d, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <span className="w-12 shrink-0 text-xs text-muted-foreground">{d.label}</span>
-              <div className="h-4 flex-1 overflow-hidden rounded-input bg-muted">
-                <div
-                  className="h-full rounded-input bg-secondary"
-                  style={{ width: `${Math.max(4, (d.minutes / maxDuration) * 100)}%` }}
-                />
+      {/* Duration trend + rankings, side by side on wide screens */}
+      <section className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-1">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Duration trend
+          </h2>
+          <div className="flex flex-col gap-1 rounded-card bg-card p-3">
+            {durations.map((d, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="w-10 shrink-0 text-[11px] text-muted-foreground">{d.label}</span>
+                <div className="h-3 flex-1 overflow-hidden rounded-input bg-muted">
+                  <div
+                    className="h-full rounded-input bg-secondary"
+                    style={{ width: `${Math.max(4, (d.minutes / maxDuration) * 100)}%` }}
+                  />
+                </div>
+                <span className="w-12 shrink-0 text-right text-[11px] text-muted-foreground">
+                  {d.minutes.toFixed(1)}m
+                </span>
               </div>
-              <span className="w-14 shrink-0 text-right text-xs text-muted-foreground">
-                {d.minutes.toFixed(1)} min
-              </span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </section>
 
-      {/* Overtime + attendance */}
-      <section className="grid gap-6 sm:grid-cols-2">
         <div>
-          <h2 className="mb-3 text-sm font-semibold">Runs over time most often</h2>
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Runs over time most
+          </h2>
           {overtimeRanking.length === 0 ? (
             <p className="text-sm text-muted-foreground">Not enough data yet.</p>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               {overtimeRanking.map((e) => (
                 <div
                   key={e.name}
-                  className="flex items-center justify-between rounded-input bg-muted px-3 py-2 text-sm"
+                  className="flex items-center justify-between rounded-input bg-muted px-2.5 py-1.5 text-xs"
                 >
                   <span>{e.name}</span>
                   <span className="text-muted-foreground">
-                    {e.overCount} of {e.totalCount} standups
+                    {e.overCount}/{e.totalCount}
                   </span>
                 </div>
               ))}
             </div>
           )}
         </div>
+
         <div>
-          <h2 className="mb-3 text-sm font-semibold">Most absences</h2>
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Most absences
+          </h2>
           {attendanceRanking.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nobody's been marked absent yet.</p>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               {attendanceRanking.map((e) => (
                 <div
                   key={e.name}
-                  className="flex items-center justify-between rounded-input bg-muted px-3 py-2 text-sm"
+                  className="flex items-center justify-between rounded-input bg-muted px-2.5 py-1.5 text-xs"
                 >
                   <span>{e.name}</span>
                   <span className="text-muted-foreground">
-                    {e.absentCount} of {e.totalSessions} standups
+                    {e.absentCount}/{e.totalSessions}
                   </span>
                 </div>
               ))}
@@ -237,7 +235,9 @@ export default async function InsightsPage() {
 
       {/* Blocker board */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold">Blockers</h2>
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Blockers
+        </h2>
         <BlockerBoard blockers={serializedBlockers} />
       </section>
     </div>

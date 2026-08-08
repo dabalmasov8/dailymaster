@@ -57,19 +57,6 @@ export async function updateBlockerNote(blockerId: string, note: string): Promis
   });
 }
 
-export async function updateBlockerStatus(
-  blockerId: string,
-  status: "new" | "in_progress" | "resolved" | "wont_fix",
-): Promise<void> {
-  const user = await getOrCreateUser();
-  const resolved = status === "resolved" || status === "wont_fix";
-  await db.blocker.updateMany({
-    where: { id: blockerId, userId: user.id },
-    data: { status, resolvedAt: resolved ? new Date() : null },
-  });
-  revalidatePath("/insights");
-}
-
 export async function deleteBlocker(blockerId: string): Promise<void> {
   const user = await getOrCreateUser();
   await db.blocker.deleteMany({ where: { id: blockerId, userId: user.id } });
@@ -87,15 +74,6 @@ export async function reportCapacity(
   });
   revalidatePath("/insights");
   return offer.id;
-}
-
-export async function claimCapacity(offerId: string, claimed: boolean): Promise<void> {
-  const user = await getOrCreateUser();
-  await db.capacityOffer.updateMany({
-    where: { id: offerId, userId: user.id },
-    data: { claimed, claimedAt: claimed ? new Date() : null },
-  });
-  revalidatePath("/insights");
 }
 
 export async function deleteCapacityOffer(offerId: string): Promise<void> {

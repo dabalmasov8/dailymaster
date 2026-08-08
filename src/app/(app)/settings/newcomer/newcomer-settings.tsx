@@ -183,7 +183,7 @@ export function NewcomerSettings({
       <button
         onClick={handleInspiration}
         disabled={isSpinning}
-        className="flex min-h-[44px] w-fit items-center gap-2 rounded-button bg-ai px-4 py-2 text-sm font-medium text-ai-foreground hover:bg-ai/90 disabled:opacity-70"
+        className="flex min-h-[44px] w-fit items-center gap-2 rounded-button bg-ai px-4 py-2 text-sm font-medium text-ai-foreground transition-colors hover:bg-ai/90 active:scale-[0.98] disabled:opacity-70"
       >
         <Sparkles className={`h-4 w-4 ${isSpinning ? "animate-spin" : ""}`} />
         {isSpinning ? "Picking one..." : "Add a random icebreaker"}

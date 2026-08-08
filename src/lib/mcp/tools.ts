@@ -138,7 +138,7 @@ export function registerTools(server: McpServer, userId: string) {
     {
       title: "List blockers",
       description:
-        "List reported blockers, optionally filtered by status (new, in_progress, resolved, wont_fix).",
+        "List reported blockers, optionally filtered by status (new, in_progress, resolved, wont_fix). Each blocker includes its comment thread.",
       inputSchema: {
         status: blockerStatusEnum
           .optional()
@@ -149,6 +149,7 @@ export function registerTools(server: McpServer, userId: string) {
       const blockers = await db.blocker.findMany({
         where: { userId, ...(status ? { status } : {}) },
         orderBy: { reportedAt: "desc" },
+        include: { comments: { orderBy: { createdAt: "asc" } } },
       });
       return json(
         blockers.map((b) => ({
@@ -159,6 +160,11 @@ export function registerTools(server: McpServer, userId: string) {
           reportedAt: b.reportedAt.toISOString(),
           resolvedAt: b.resolvedAt?.toISOString() ?? null,
           resolutionNote: b.resolutionNote,
+          comments: b.comments.map((c) => ({
+            id: c.id,
+            text: c.text,
+            createdAt: c.createdAt.toISOString(),
+          })),
         })),
       );
     },
@@ -191,21 +197,37 @@ export function registerTools(server: McpServer, userId: string) {
   );
 
   server.registerTool(
+    "add_blocker_comment",
+    {
+      title: "Add a blocker comment",
+      description: "Add a comment to a blocker's thread, e.g. a status update or context.",
+      inputSchema: {
+        blockerId: z.string().describe("The blocker's id, from list_blockers."),
+        text: z.string().min(1).max(2000),
+      },
+    },
+    async ({ blockerId, text }: { blockerId: string; text: string }) => {
+      const blocker = await db.blocker.findFirst({ where: { id: blockerId, userId } });
+      if (!blocker) {
+        return json({ success: false, error: "Blocker not found." });
+      }
+      const comment = await db.blockerComment.create({
+        data: { blockerId, userId, text: text.trim() },
+      });
+      return json({ success: true, id: comment.id, createdAt: comment.createdAt.toISOString() });
+    },
+  );
+
+  server.registerTool(
     "list_capacity_offers",
     {
       title: "List capacity offers",
-      description:
-        "List people who offered capacity to help during standups, optionally filtered by whether the offer was claimed.",
-      inputSchema: {
-        claimed: z
-          .boolean()
-          .optional()
-          .describe("Only return offers with this claimed state. Omit to return all."),
-      },
+      description: "List people who offered capacity to help during standups.",
+      inputSchema: {},
     },
-    async ({ claimed }) => {
+    async () => {
       const offers = await db.capacityOffer.findMany({
-        where: { userId, ...(claimed !== undefined ? { claimed } : {}) },
+        where: { userId },
         orderBy: { reportedAt: "desc" },
       });
       return json(
@@ -213,8 +235,6 @@ export function registerTools(server: McpServer, userId: string) {
           id: o.id,
           memberName: o.memberName,
           reportedAt: o.reportedAt.toISOString(),
-          claimed: o.claimed,
-          claimedAt: o.claimedAt?.toISOString() ?? null,
         })),
       );
     },
@@ -225,7 +245,7 @@ export function registerTools(server: McpServer, userId: string) {
     {
       title: "Get team digest",
       description:
-        "A rolled-up summary for a recent period: standup count and average duration, blockers opened/resolved, capacity offered/claimed.",
+        "A rolled-up summary for a recent period: standup count and average duration, blockers opened/resolved, capacity offered.",
       inputSchema: {
         periodDays: z
           .number()
@@ -239,18 +259,14 @@ export function registerTools(server: McpServer, userId: string) {
     async ({ periodDays }) => {
       const since = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
 
-      const [sessions, blockersOpened, blockersResolved, capacityOffered, capacityClaimed] =
-        await Promise.all([
-          db.standupSession.findMany({
-            where: { userId, endedAt: { not: null }, startedAt: { gte: since } },
-          }),
-          db.blocker.count({ where: { userId, reportedAt: { gte: since } } }),
-          db.blocker.count({ where: { userId, resolvedAt: { gte: since } } }),
-          db.capacityOffer.count({ where: { userId, reportedAt: { gte: since } } }),
-          db.capacityOffer.count({
-            where: { userId, claimed: true, claimedAt: { gte: since } },
-          }),
-        ]);
+      const [sessions, blockersOpened, blockersResolved, capacityOffered] = await Promise.all([
+        db.standupSession.findMany({
+          where: { userId, endedAt: { not: null }, startedAt: { gte: since } },
+        }),
+        db.blocker.count({ where: { userId, reportedAt: { gte: since } } }),
+        db.blocker.count({ where: { userId, resolvedAt: { gte: since } } }),
+        db.capacityOffer.count({ where: { userId, reportedAt: { gte: since } } }),
+      ]);
 
       const durations = sessions
         .map((s) => durationMinutes(s.startedAt, s.endedAt))
@@ -274,7 +290,6 @@ export function registerTools(server: McpServer, userId: string) {
         blockersOpened,
         blockersResolved,
         capacityOffered,
-        capacityClaimed,
         absences: Object.fromEntries(absences),
       });
     },
