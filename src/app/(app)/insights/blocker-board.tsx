@@ -188,25 +188,27 @@ export function BlockerBoard({ blockers: initialBlockers }: { blockers: BlockerR
                       <div className="flex items-start justify-between gap-1">
                         <div className="flex items-start gap-1.5">
                           <GripVertical className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-                          <p className="text-sm font-medium">{b.memberName}</p>
+                          <p className="text-sm font-semibold text-foreground">{b.memberName}</p>
                         </div>
                         <button
                           onClick={() => handleDelete(b.id)}
                           aria-label="Delete blocker"
-                          className="flex min-h-[24px] min-w-[24px] shrink-0 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-muted hover:text-destructive active:scale-90"
+                          className="flex min-h-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-muted hover:text-destructive active:scale-90"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      {b.note && <p className="ml-5 mt-0.5 text-xs text-muted-foreground">{b.note}</p>}
-                      <p className="ml-5 mt-1 text-xs text-muted-foreground">{daysAgo(b.reportedAt)}</p>
+                      {b.note && <p className="ml-5 mt-1 text-sm leading-snug text-foreground/90">{b.note}</p>}
+                      <p className="ml-5 mt-1.5 text-xs uppercase tracking-wide text-muted-foreground">
+                        {daysAgo(b.reportedAt)}
+                      </p>
 
                       {b.comments.length > 0 && (
-                        <div className="ml-5 mt-2 flex flex-col gap-1 border-t border-border pt-2">
+                        <div className="ml-5 mt-2 flex flex-col gap-1.5 border-t border-border pt-2">
                           {b.comments.map((c) => (
-                            <p key={c.id} className="text-xs leading-snug">
+                            <p key={c.id} className="text-xs leading-snug text-foreground/90">
                               {c.text}{" "}
-                              <span className="text-xs text-muted-foreground">{timeAgo(c.createdAt)}</span>
+                              <span className="text-muted-foreground">{timeAgo(c.createdAt)}</span>
                             </p>
                           ))}
                         </div>
@@ -230,7 +232,7 @@ export function BlockerBoard({ blockers: initialBlockers }: { blockers: BlockerR
                         <button
                           onClick={() => handleAddComment(b.id)}
                           aria-label="Add comment"
-                          className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-90"
+                          className="flex min-h-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-90"
                         >
                           <Send className="h-3.5 w-3.5" />
                         </button>

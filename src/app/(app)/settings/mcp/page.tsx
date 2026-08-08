@@ -1,5 +1,6 @@
 import { getOrCreateUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { StickyPageHeader } from "@/components/layout/sticky-page-header";
 import { TokenManager } from "./token-manager";
 
 export const dynamic = "force-dynamic";
@@ -20,9 +21,11 @@ export default async function McpSettingsPage() {
   });
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="max-w-xl">
+      <StickyPageHeader>MCP access</StickyPageHeader>
+      <div className="flex flex-col gap-8">
       <section>
-        <h2 className="mb-2 text-sm font-semibold">MCP access</h2>
+        <h2 className="mb-2 text-sm font-semibold">Your tokens</h2>
         <p className="mb-4 text-sm text-muted-foreground">
           Connect an AI assistant to your DailyMaster data. It can read your
           standup history, blockers, and capacity offers, and change a blocker&apos;s
@@ -79,6 +82,7 @@ export default async function McpSettingsPage() {
 }`}
         </pre>
       </section>
+      </div>
     </div>
   );
 }

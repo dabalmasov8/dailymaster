@@ -1,6 +1,7 @@
 import { getOrCreateUser } from "@/lib/auth";
 import type { Question, ShortcutMap } from "@/types";
 import { DEFAULT_SHORTCUTS } from "@/types";
+import { StickyPageHeader } from "@/components/layout/sticky-page-header";
 import { StandupSettings } from "./standup-settings";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export default async function StandupPropertiesPage() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="mb-6 text-xl font-semibold">Daily Standup properties</h1>
+      <StickyPageHeader>Daily Standup properties</StickyPageHeader>
       <StandupSettings
         initialQuestions={questions}
         initialMinutes={user.standupDurationMinutes}

@@ -214,8 +214,11 @@ export async function deleteNewcomerQuestion(
 
 export async function updateKeyboardShortcuts(shortcuts: ShortcutMap): Promise<ActionResult> {
   const keys = Object.values(shortcuts);
-  const allSingleChar = keys.every((k) => typeof k === "string" && k.length === 1);
-  if (!allSingleChar) return { success: false, error: "Each shortcut must be a single key" };
+  // Keys are raw KeyboardEvent.key values, so they can be longer than one
+  // character ("tab", "shift", "arrowright", " " for space) — just bound
+  // the length sanely and reject empty values.
+  const allValid = keys.every((k) => typeof k === "string" && k.length > 0 && k.length <= 20);
+  if (!allValid) return { success: false, error: "Each shortcut must be a valid key" };
   const hasDuplicates = new Set(keys).size !== keys.length;
   if (hasDuplicates) return { success: false, error: "Shortcuts must be unique" };
 

@@ -1,5 +1,6 @@
 import { getOrCreateUser } from "@/lib/auth";
 import type { Question } from "@/types";
+import { StickyPageHeader } from "@/components/layout/sticky-page-header";
 import { NewcomerSettings } from "./newcomer-settings";
 
 export const dynamic = "force-dynamic";
@@ -10,9 +11,7 @@ export default async function NewcomerPropertiesPage() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="mb-6 text-xl font-semibold">
-        Newcomer Intro properties
-      </h1>
+      <StickyPageHeader>Newcomer Intro properties</StickyPageHeader>
       <NewcomerSettings initialQuestions={questions} />
     </div>
   );

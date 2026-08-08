@@ -5,6 +5,7 @@ import { Shuffle, ListOrdered, Trash2, ClipboardCheck, FileText, MessageSquarePl
 import { TimerDisplay } from "@/components/ui/timer-display";
 import { cn } from "@/lib/utils";
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut";
+import { displayShortcutKey } from "@/lib/shortcuts";
 import {
   startStandupSession,
   endStandupSession,
@@ -49,11 +50,9 @@ type StandupState = {
   capacity: CapacityEntry[];
   isShuffled: boolean;
   speakerLog: LoggedSpeaker[];
-  absentIds: string[];
 };
 
 type StandupAction =
-  | { type: "TOGGLE_ABSENT"; id: string }
   | { type: "START_DEFAULT"; speakers: TeamMember[]; timePerSpeaker: number }
   | { type: "START_SHUFFLED"; speakers: TeamMember[]; timePerSpeaker: number }
   | { type: "TICK" }
@@ -107,13 +106,6 @@ function advanceOrComplete(state: StandupState, speakerLog: LoggedSpeaker[]): St
 
 function reducer(state: StandupState, action: StandupAction): StandupState {
   switch (action.type) {
-    case "TOGGLE_ABSENT":
-      return {
-        ...state,
-        absentIds: state.absentIds.includes(action.id)
-          ? state.absentIds.filter((id) => id !== action.id)
-          : [...state.absentIds, action.id],
-      };
     case "START_DEFAULT":
       return {
         ...state,
@@ -140,12 +132,10 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
         isShuffled: true,
         speakerLog: [],
       };
-    case "TICK": {
-      if (state.timeLeft <= 1) {
-        return advanceOrComplete(state, logCurrentSpeaker(state));
-      }
+    case "TICK":
+      // No auto-advance: the timer keeps counting past zero, into negative,
+      // so overtime is a real measurable thing instead of impossible.
       return { ...state, timeLeft: state.timeLeft - 1 };
-    }
     case "NEXT_SPEAKER":
       return advanceOrComplete(state, logCurrentSpeaker(state));
     case "MARK_ABSENT_CURRENT": {
@@ -231,7 +221,6 @@ const initialState: StandupState = {
   capacity: [],
   isShuffled: false,
   speakerLog: [],
-  absentIds: [],
 };
 
 function formatDate(): string {
@@ -264,7 +253,6 @@ export function StandupSession({
   const noteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const timePerSpeaker = durationMinutes * 60 + durationSeconds;
-  const presentMembers = members.filter((m) => !state.absentIds.includes(m.id));
 
   useEffect(() => {
     if (state.phase === "active") {
@@ -282,23 +270,16 @@ export function StandupSession({
         ? { type: "START_DEFAULT", speakers, timePerSpeaker }
         : { type: "START_SHUFFLED", speakers, timePerSpeaker },
     );
-    const absentees = members.filter((m) => state.absentIds.includes(m.id));
-    const id = await startStandupSession(orderMode, [
-      ...speakers.map((s) => ({
+    const id = await startStandupSession(
+      orderMode,
+      speakers.map((s) => ({
         memberId: s.id,
         name: s.name,
         present: true,
         allottedSeconds: timePerSpeaker,
         usedSeconds: 0,
       })),
-      ...absentees.map((a) => ({
-        memberId: a.id,
-        name: a.name,
-        present: false,
-        allottedSeconds: 0,
-        usedSeconds: 0,
-      })),
-    ]);
+    );
     sessionIdRef.current = id;
   }
 
@@ -313,18 +294,34 @@ export function StandupSession({
       const key = e.key.toLowerCase();
 
       if (state.phase === "idle") {
-        if (key === shortcuts.default) startSession("default", presentMembers);
-        else if (key === shortcuts.shuffled) startSession("shuffled", presentMembers);
+        if (key === shortcuts.default) {
+          e.preventDefault();
+          startSession("default", members);
+        } else if (key === shortcuts.shuffled) {
+          e.preventDefault();
+          startSession("shuffled", members);
+        }
       } else if (state.phase === "active") {
-        if (key === shortcuts.blocker) handleMarkBlocker();
-        else if (key === shortcuts.capacity) handleMarkCapacity();
-        else if (key === shortcuts.next) dispatch({ type: "NEXT_SPEAKER" });
-        else if (key === shortcuts.absent) dispatch({ type: "MARK_ABSENT_CURRENT" });
-        else if (key === shortcuts.end) dispatch({ type: "END_STANDUP" });
+        if (key === shortcuts.blocker) {
+          e.preventDefault();
+          handleMarkBlocker();
+        } else if (key === shortcuts.capacity) {
+          e.preventDefault();
+          handleMarkCapacity();
+        } else if (key === shortcuts.next) {
+          e.preventDefault();
+          dispatch({ type: "NEXT_SPEAKER" });
+        } else if (key === shortcuts.absent) {
+          e.preventDefault();
+          dispatch({ type: "MARK_ABSENT_CURRENT" });
+        } else if (key === shortcuts.end) {
+          e.preventDefault();
+          dispatch({ type: "END_STANDUP" });
+        }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state.phase, presentMembers, timePerSpeaker, shortcuts],
+    [state.phase, members, timePerSpeaker, shortcuts],
   );
 
   useEffect(() => {
@@ -336,17 +333,7 @@ export function StandupSession({
   useEffect(() => {
     if (state.phase === "complete" && sessionIdRef.current && !sessionEndedRef.current) {
       sessionEndedRef.current = true;
-      const absentees = members.filter((m) => state.absentIds.includes(m.id));
-      endStandupSession(sessionIdRef.current, [
-        ...state.speakerLog,
-        ...absentees.map((a) => ({
-          memberId: a.id,
-          name: a.name,
-          present: false,
-          allottedSeconds: 0,
-          usedSeconds: 0,
-        })),
-      ]);
+      endStandupSession(sessionIdRef.current, state.speakerLog);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase]);
@@ -411,10 +398,12 @@ export function StandupSession({
     setTimeout(() => setCopied(false), 2000);
   }
 
-  const minutes = Math.floor(state.timeLeft / 60);
-  const seconds = state.timeLeft % 60;
+  const isOvertime = state.timeLeft < 0;
+  const displaySeconds = Math.abs(state.timeLeft);
+  const minutes = Math.floor(displaySeconds / 60);
+  const seconds = displaySeconds % 60;
   const currentSpeaker = state.speakers[state.currentIndex];
-  const key = (k: keyof ShortcutMap) => shortcuts[k].toUpperCase();
+  const key = (k: keyof ShortcutMap) => displayShortcutKey(shortcuts[k]);
 
   return (
     <div className="flex flex-col gap-4 px-4 py-4 lg:flex-row lg:gap-8 lg:px-10 lg:py-10">
@@ -468,47 +457,17 @@ export function StandupSession({
               --:--
             </p>
 
-            {members.length > 0 && (
-              <div className="mt-6 w-full max-w-md lg:mt-8">
-                <p className="mb-2 text-center text-xs font-medium text-muted-foreground">
-                  Who&apos;s here today?
-                </p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {members.map((m) => {
-                    const absent = state.absentIds.includes(m.id);
-                    return (
-                      <button
-                        key={m.id}
-                        onClick={() => dispatch({ type: "TOGGLE_ABSENT", id: m.id })}
-                        className={cn(
-                          "min-h-[36px] rounded-pill border px-3 py-1.5 text-xs font-medium transition-colors active:scale-95",
-                          absent
-                            ? "border-border text-muted-foreground line-through hover:border-foreground/40 hover:bg-muted hover:text-foreground"
-                            : "border-secondary bg-secondary/10 text-secondary hover:bg-secondary/20",
-                        )}
-                      >
-                        {m.name}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="mt-2 text-center text-xs text-muted-foreground">
-                  Tap a name to mark them absent. Everyone else counted as present.
-                </p>
-              </div>
-            )}
-
             <div className="mt-4 flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-4 lg:mt-8">
               <button
-                onClick={() => startSession("default", presentMembers)}
-                disabled={presentMembers.length === 0}
+                onClick={() => startSession("default", members)}
+                disabled={members.length === 0}
                 className="min-h-[44px] rounded-button border border-secondary px-6 py-3 text-sm font-medium text-secondary transition-all hover:bg-secondary hover:text-secondary-foreground active:scale-[0.98] disabled:opacity-50"
               >
                 Default order<span className="hidden lg:inline"> ({key("default")})</span>
               </button>
               <button
-                onClick={() => startSession("shuffled", presentMembers)}
-                disabled={presentMembers.length === 0}
+                onClick={() => startSession("shuffled", members)}
+                disabled={members.length === 0}
                 className="min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground transition-all hover:bg-secondary/90 active:scale-[0.98] disabled:opacity-50"
               >
                 Shuffled order<span className="hidden lg:inline"> ({key("shuffled")})</span>
@@ -540,7 +499,8 @@ export function StandupSession({
               <TimerDisplay
                 minutes={minutes}
                 seconds={seconds}
-                warning={state.timeLeft <= 10}
+                negative={isOvertime}
+                warning={isOvertime || state.timeLeft <= 10}
               />
             </div>
             <div className="mt-2 flex items-center gap-1.5 text-muted-foreground">
