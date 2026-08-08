@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, MessageSquare, UserPlus } from "lucide-react";
+import { Users, MessageSquare, UserPlus, Plug } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const settingsLinks = [
   { href: "/settings/participants", label: "Participants", icon: Users },
   { href: "/settings/standup", label: "Standup", icon: MessageSquare },
   { href: "/settings/newcomer", label: "Newcomer", icon: UserPlus },
+  { href: "/settings/mcp", label: "MCP", icon: Plug },
 ];
 
 export function SettingsSidebar() {
@@ -48,6 +49,7 @@ export function SettingsSidebar() {
             "/settings/participants": "Participants list",
             "/settings/standup": "Daily Standup properties",
             "/settings/newcomer": "Newcomer Intro properties",
+            "/settings/mcp": "MCP access",
           };
           return (
             <Link

@@ -18,4 +18,70 @@ model User {
   standupDurationSeconds Int      @default(0)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
+
+  standupSessions StandupSession[]
+  blockers        Blocker[]
+  capacityOffers  CapacityOffer[]
+  apiTokens       ApiToken[]
+}
+
+model ApiToken {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  tokenHash   String    @unique
+  tokenPrefix String
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+
+  @@index([userId])
+}
+
+model StandupSession {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+  orderMode   String // "default" | "shuffled"
+  // [{ memberId, name, present, allottedSeconds, usedSeconds }]
+  participants Json     @default("[]")
+
+  blockers       Blocker[]
+  capacityOffers CapacityOffer[]
+
+  @@index([userId, startedAt])
+}
+
+model Blocker {
+  id             String          @id @default(cuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId      String?
+  session        StandupSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  memberId       String
+  memberName     String
+  note           String          @default("")
+  status         String          @default("new") // "new" | "in_progress" | "resolved" | "wont_fix"
+  reportedAt     DateTime        @default(now())
+  resolvedAt     DateTime?
+  resolutionNote String          @default("")
+
+  @@index([userId, status])
+}
+
+model CapacityOffer {
+  id         String          @id @default(cuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId  String?
+  session    StandupSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  memberId   String
+  memberName String
+  reportedAt DateTime        @default(now())
+  claimed    Boolean         @default(false)
+  claimedAt  DateTime?
+
+  @@index([userId, claimed])
 }

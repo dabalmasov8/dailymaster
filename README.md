@@ -24,6 +24,49 @@ This is the third attempt. The first two didn't get far — wrong tools, no clea
 
 ---
 
+## V2 — From meeting tool to team memory
+
+V1 solved the meeting itself: a timer, an order, a way to flag blockers, a way to copy the summary out. What it didn't solve is that the moment the meeting ended, everything about it disappeared. Blockers evaporated. Nobody could say whether the standup was getting shorter or longer over a month. "Waiting on Anna" from Tuesday had no way of becoming "resolved" by Friday. V1 ran the meeting; it didn't remember it.
+
+V2 is about giving the standup a memory, scoped deliberately to the pieces that turn into real product signal — not every idea that came up while brainstorming a future MCP integration.
+
+**What shipped:**
+
+- **Attendance tracking.** A "Who's here today?" chip row before you start — tap a name to mark them absent. Absent people are skipped in the rotation and it's logged, so "who keeps missing standup" becomes an answerable question instead of a hunch.
+- **Session logging.** Every standup now records its start time, end time, speaking order, and how long each person actually took versus their allotted time. This is what makes "our standups are getting longer" a fact instead of a feeling.
+- **Blockers with a lifecycle.** A blocker used to be a name in a sidebar for 15 minutes and then nothing. Now each one gets an optional note, persists past the meeting, and moves through New → In progress → Resolved / Won't fix on a dedicated board. A blocker is now a thing you can close, not just a thing you can mention.
+- **Capacity offers with a claim.** "Roy has capacity to help" was pure goodwill with no follow-through mechanism. Now each offer can be marked claimed, so capacity utilization — how much of the offered help actually gets used — is a real, visible number instead of an assumption.
+- **The Insights page.** Everything above rolls up into one view: average standup duration and its trend, who tends to run over their allotted time, who's been absent most, the blocker board, and capacity utilization. This is also the data foundation for the MCP server — the next milestone — so an assistant can eventually answer "what's still blocking us" or "how has standup length trended" by querying this same data instead of me building a bespoke report for every question.
+
+**Deliberately cut from this milestone:**
+
+- **Newcomer answer history.** Logging what each newcomer says to the icebreaker questions (to build a searchable "who is this person" memory) is a genuinely good idea, but it's a different feature surface — newcomer intros, not standups — and bundling it in would have diluted this milestone's actual focus: making the *daily* ritual accountable. Revisit later.
+- **Cross-session blocker dependency tagging** ("waiting on Team X"). This only matters once there's real multi-team usage to observe. Building it now would be designing for a scenario I haven't seen yet — premature structure for a problem that doesn't exist in the data.
+
+The discipline here is the same one from V1: define scope before writing code, and say no to good ideas that don't serve the milestone.
+
+---
+
+## V2.1 — An MCP server for the data
+
+V2 built the data; V2.1 makes it queryable by an AI assistant instead of only by the Insights page.
+
+**What shipped:**
+
+- **A hosted MCP server at `/api/mcp`.** Any MCP-compatible client — Claude Desktop, Claude.ai custom connectors, or anything else that speaks the protocol — can connect and ask questions about a team's standups.
+- **Personal access tokens, not shared credentials.** Since DailyMaster is multi-tenant (every Clerk user has their own team and data), the MCP server needs to know who's asking. Settings → MCP lets you generate a token, shown once at creation, hashed before it's stored — the same pattern GitHub, Linear, and most developer tools use for this exact problem. Revoking a token is immediate, no confirmation dialog, because the entire point of revocation is speed if a token leaks.
+- **Seven tools, read-heavy, one write.** `list_team_members`, `list_standups`, `get_standup_stats` (with trend vs. the previous period), `list_blockers`, `list_capacity_offers`, and `get_team_digest` are read-only. `update_blocker_status` is the one write tool — it means an assistant can actually resolve a blocker conversationally ("mark the design-review blocker as resolved"), not just report on it.
+- **Stateless by design.** Every request creates a fresh `McpServer` instance scoped to whichever user the token belongs to, then discards it. No session state to leak between users, no in-memory cache to get stale — a good fit for a serverless deployment where any request can land on a different instance.
+
+**What I got wrong on the first pass, and how I found it:** I didn't just write this and ship it — I ran it against a real seeded account before calling it done, and found two bugs that would have made the whole thing silently fail in production:
+
+1. **Clerk's own middleware was blocking the route before my code ever ran.** DailyMaster protects every route by default and only exempts an explicit allowlist. `/api/mcp` authenticates itself via Bearer token, not a Clerk session — but I'd forgotten to add it to that allowlist, so Clerk's `auth.protect()` rejected every request before my token check even executed. A request with a *valid* token would have failed identically to one with no token at all. This only shows up when you test the authenticated path, not just the unauthenticated one.
+2. **The transport was returning empty responses.** The MCP SDK defaults to Server-Sent Events for its responses, and my first version explicitly closed the transport immediately after getting the `Response` object back — which cut the stream before it had actually flushed the reply. The fix was two lines: set `enableJsonResponse: true` (our tools are simple request/response, no server-initiated streaming needed) and stop closing the transport early. Both bugs returned HTTP 200 — nothing about the status code would have told you something was wrong. Only calling the real endpoint with a real token surfaced it.
+
+**Deliberately cut from this milestone:** OAuth-based auth (so a client could connect without manually copying a token) and MCP resources/prompts beyond tools. Personal access tokens are the smaller, well-understood piece that gets a working connector shipped now; OAuth is worth doing once there's a reason more demanding than "slightly nicer setup."
+
+---
+
 ## How it works
 
 ### Step 0 — The landing page knows you
@@ -42,7 +85,9 @@ In Settings, you can change the questions your team answers during standup, set 
 
 Open the Daily Standup page. Choose the speaker order — either the default list or a random shuffle. The timer starts counting down for the first speaker. When their time is up, it moves to the next person automatically.
 
-During someone's turn, you can mark them as having a **blocker** (something that is stopping their work) or **capacity** (they have free time to help others). These names collect in a sidebar so you don't forget them.
+Before you start, a row of chips lets you mark who's actually here today — tap a name to mark them absent. Absent people are skipped in the rotation and it's logged, so attendance trends show up in Insights later.
+
+During someone's turn, you can mark them as having a **blocker** (something that is stopping their work) or **capacity** (they have free time to help others). These names collect in a sidebar so you don't forget them. Each blocker gets an optional one-line note field — enough for "waiting on design review," not a full ticket description. Each capacity offer gets a checkbox so you can mark it "claimed" once someone actually follows up and gets help.
 
 When the standup is done, press "Copy to clipboard" — it creates a formatted summary of who has blockers and who has capacity, ready to paste into Slack, Teams, or any team chat.
 
@@ -55,6 +100,14 @@ Open the Newcomer Intro page. Each team member takes a turn answering the icebre
 ### Step 5 — Install on your phone
 
 Since DailyMaster is a PWA (Progressive Web App — a website that behaves like a native app), you can add it to your phone's home screen. On iPhone, tap the share button in Safari and choose "Add to Home Screen." It opens full-screen without the browser address bar, just like a regular app.
+
+### Step 6 — See trends in the Insights page
+
+Every standup you run now gets logged — start time, end time, who spoke, who was absent, who went over their allotted time. Blockers and capacity offers persist too, instead of vanishing the moment the meeting ends. The Insights page turns this into: average standup duration over your last 10 meetings, who tends to run over time, who's been absent most, a blocker board (New / In progress / Resolved / Won't fix) you can triage days after the standup, and how much offered capacity actually gets claimed. This is also the data foundation for the MCP server, below.
+
+### Step 7 — Connect an AI assistant
+
+Go to Settings → MCP and generate a token — it's shown once, so copy it somewhere safe. Add `https://dailymaster.online/api/mcp` as an MCP server in Claude Desktop (or any MCP-compatible client) with that token as a Bearer credential, and it can answer questions like "what blockers are still open" or "how has our standup length trended this month" directly from your team's data — and mark a blocker resolved without you opening the app.
 
 ---
 
@@ -74,6 +127,41 @@ Since DailyMaster is a PWA (Progressive Web App — a website that behaves like 
 
 **100 built-in icebreaker questions.** The newcomer settings page has an "Add a random icebreaker" button with a spinning animation. It pulls from a curated pool of 100 questions — food debates, hypothetical scenarios, this-or-that picks, and quirky opinions — checked for semantic duplicates, so "What's your favorite season?" and "Summer or winter?" never both appear. The pool also filters out questions you've already added.
 
+**Consistent design tokens.** Every border radius, colour, and spacing value comes from a shared set of CSS variables. Four radius values across the entire app: 6px for inputs, 8px for buttons, 12px for cards, 20px for pills. This means every element looks like it belongs to the same design system, even though many were built at different times.
+
+**One clear call to action, not three.** The first version of the marketing page had "Sign-up / Login" in the header, "Start for free" in the hero, and a second "Sign-up / Login" at the bottom — three different labels asking for the same click. I collapsed it to a single message: a quiet "Log in" for people who already have an account (header, low visual weight), and "Start for free" repeated once at the top and once at the bottom for new visitors. Same number of buttons, one message.
+
+**Screenshots paired with the benefit they prove.** Rather than a wall of icons and adjectives, the marketing page alternates text and a real screenshot for each feature — the actual timer, the actual copy-notes button, the actual icebreaker picker. Claims are easier to trust when you can see the interface behind them. All screenshots use the same 12px card radius as the rest of the design system, so they read as part of the product, not stock photography.
+
+**No white flash on mobile Safari.** iOS Safari's rubber-band overscroll reveals whatever is behind the page content when you scroll past the top or bottom. On the marketing page, that used to be a flash of white — because the brand orange only covered the visible content, not the browser's own background. Fixed by syncing the `<html>`/`<body>` background colour to the brand orange while the page is mounted, so the bounce reveals more orange instead of white.
+
+**Auto-growing text areas, sized by the browser instead of JavaScript.** Long questions in Settings use a textarea that grows to fit their content. My first attempt measured the content's height in JavaScript (`scrollHeight`) and set it as an inline style — that approach kept clipping the last line of two-line questions on mobile, and re-measuring on font-load events didn't fix it reliably. I replaced it with a pure-CSS technique: an invisible copy of the text sits in a `::after` pseudo-element sharing a CSS grid cell with the real textarea, and the grid row auto-sizes to fit whichever is taller. There's no JavaScript measurement at all, so there's no race to get wrong — the browser's own layout engine keeps it correct on every reflow, including font swaps.
+
+**Logging that doesn't block the meeting.** Standup sessions, blockers, and capacity offers all persist to the database now, but nothing about the live meeting flow waits on a network round trip. Marking a blocker updates the UI immediately from local state; the database write happens in the background, and the returned row ID gets attached to the local entry once it resolves. If you remove a blocker before the write finishes, the local ID is still there to cancel it. The facilitator never sees a spinner mid-meeting.
+
+**A blocker board instead of a blocker list.** Blockers used to evaporate the moment a standup ended — nothing recorded whether "waiting on Anna" from Tuesday ever got resolved. The Insights page adds a four-column board (New, In progress, Resolved, Won't fix) so a blocker becomes a thing you can actually track and close, not just a name in a sidebar for 15 minutes.
+
+**A token you see exactly once.** When you generate an MCP access token, it's displayed in full one time, with a copy button and an explicit warning — after that, only a hashed version exists in the database and the UI shows a truncated prefix for identification. This is the same pattern GitHub and Linear use for personal access tokens, and it exists because the alternative (storing or re-displaying the plaintext secret) is a real security liability, not a hypothetical one.
+
+---
+
+## Stack
+
+| What | Technology | Why |
+|---|---|---|
+| App framework | Next.js 15 + React 19 | Fast page loads, built-in support for the hosting platform |
+| Language | TypeScript | JavaScript with type checking — catches bugs before they reach users |
+| Design system | Tailwind CSS + shadcn/ui | Pre-built components that match the visual design, easy to customise |
+| User accounts | Clerk | Free for up to 10,000 users, handles login and sign-up with no custom code |
+| Database | Neon (cloud PostgreSQL database) | Free tier, stores all user data — team members, questions, settings |
+| Database toolkit | Prisma | Translates between the app code and the database safely |
+| Installable app | @serwist/next | Makes the website installable on phones as a home screen app |
+| Display font | Blackout Midnight | Bold font used for the timer and welcome heading |
+| AI assistant access | @modelcontextprotocol/sdk | Powers the `/api/mcp` server so assistants can query standup data with a personal access token |
+| Hosting | Vercel | Free tier, automatically publishes new versions when code is updated |
+
+**Total monthly cost: $0.** Every service is on its free tier. No credit card required.
+
 ---
 
 ## Cost
@@ -85,8 +173,6 @@ Since DailyMaster is a PWA (Progressive Web App — a website that behaves like 
 | Clerk user accounts (free tier, up to 10,000 users) | $0/month |
 | Custom domain (optional) | ~$12/year |
 | **Total** | **$0/month** |
-
-**Total monthly cost: $0.** Every service is on its free tier. No credit card required.
 
 ---
 

@@ -1,11 +1,45 @@
 "use client";
 
 import { useReducer, useEffect, useCallback, useRef, useState } from "react";
-import { Shuffle, ListOrdered, Trash2, ClipboardCheck, FileText } from "lucide-react";
+import { Shuffle, ListOrdered, Trash2, ClipboardCheck, FileText, Check } from "lucide-react";
 import { TimerDisplay } from "@/components/ui/timer-display";
 import { cn } from "@/lib/utils";
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut";
+import {
+  startStandupSession,
+  endStandupSession,
+  reportBlocker,
+  updateBlockerNote,
+  deleteBlocker,
+  reportCapacity,
+  claimCapacity,
+  deleteCapacityOffer,
+} from "./actions";
 import type { TeamMember, Question } from "@/types";
+
+type LoggedSpeaker = {
+  memberId: string;
+  name: string;
+  present: boolean;
+  allottedSeconds: number;
+  usedSeconds: number;
+};
+
+type BlockerEntry = {
+  id: string;
+  dbId: string | null;
+  memberId: string;
+  name: string;
+  note: string;
+};
+
+type CapacityEntry = {
+  id: string;
+  dbId: string | null;
+  memberId: string;
+  name: string;
+  claimed: boolean;
+};
 
 type StandupState = {
   phase: "idle" | "active" | "complete";
@@ -13,18 +47,25 @@ type StandupState = {
   currentIndex: number;
   timeLeft: number;
   totalTime: number;
-  blockers: TeamMember[];
-  capacity: TeamMember[];
+  blockers: BlockerEntry[];
+  capacity: CapacityEntry[];
   isShuffled: boolean;
+  speakerLog: LoggedSpeaker[];
+  absentIds: string[];
 };
 
 type StandupAction =
+  | { type: "TOGGLE_ABSENT"; id: string }
   | { type: "START_DEFAULT"; speakers: TeamMember[]; timePerSpeaker: number }
   | { type: "START_SHUFFLED"; speakers: TeamMember[]; timePerSpeaker: number }
   | { type: "TICK" }
   | { type: "NEXT_SPEAKER" }
-  | { type: "MARK_BLOCKER" }
-  | { type: "MARK_CAPACITY" }
+  | { type: "MARK_BLOCKER"; localId: string }
+  | { type: "MARK_CAPACITY"; localId: string }
+  | { type: "SET_BLOCKER_DB_ID"; localId: string; dbId: string }
+  | { type: "SET_CAPACITY_DB_ID"; localId: string; dbId: string }
+  | { type: "UPDATE_BLOCKER_NOTE"; id: string; note: string }
+  | { type: "TOGGLE_CAPACITY_CLAIMED"; id: string }
   | { type: "REMOVE_BLOCKER"; id: string }
   | { type: "REMOVE_CAPACITY"; id: string }
   | { type: "END_STANDUP" };
@@ -38,8 +79,30 @@ function shuffleArray<T>(arr: T[]): T[] {
   return shuffled;
 }
 
+function logCurrentSpeaker(state: StandupState): LoggedSpeaker[] {
+  const speaker = state.speakers[state.currentIndex];
+  if (!speaker) return state.speakerLog;
+  return [
+    ...state.speakerLog,
+    {
+      memberId: speaker.id,
+      name: speaker.name,
+      present: true,
+      allottedSeconds: state.totalTime,
+      usedSeconds: state.totalTime - state.timeLeft,
+    },
+  ];
+}
+
 function reducer(state: StandupState, action: StandupAction): StandupState {
   switch (action.type) {
+    case "TOGGLE_ABSENT":
+      return {
+        ...state,
+        absentIds: state.absentIds.includes(action.id)
+          ? state.absentIds.filter((id) => id !== action.id)
+          : [...state.absentIds, action.id],
+      };
     case "START_DEFAULT":
       return {
         ...state,
@@ -51,6 +114,7 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
         blockers: [],
         capacity: [],
         isShuffled: false,
+        speakerLog: [],
       };
     case "START_SHUFFLED":
       return {
@@ -63,40 +127,85 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
         blockers: [],
         capacity: [],
         isShuffled: true,
+        speakerLog: [],
       };
     case "TICK": {
       if (state.timeLeft <= 1) {
+        const speakerLog = logCurrentSpeaker(state);
         if (state.currentIndex >= state.speakers.length - 1) {
-          return { ...state, phase: "complete", timeLeft: 0 };
+          return { ...state, phase: "complete", timeLeft: 0, speakerLog };
         }
         return {
           ...state,
           currentIndex: state.currentIndex + 1,
           timeLeft: state.totalTime,
+          speakerLog,
         };
       }
       return { ...state, timeLeft: state.timeLeft - 1 };
     }
     case "NEXT_SPEAKER": {
+      const speakerLog = logCurrentSpeaker(state);
       if (state.currentIndex >= state.speakers.length - 1) {
-        return { ...state, phase: "complete", timeLeft: 0 };
+        return { ...state, phase: "complete", timeLeft: 0, speakerLog };
       }
       return {
         ...state,
         currentIndex: state.currentIndex + 1,
         timeLeft: state.totalTime,
+        speakerLog,
       };
     }
     case "MARK_BLOCKER": {
       const speaker = state.speakers[state.currentIndex];
-      if (state.blockers.some((b) => b.id === speaker.id)) return state;
-      return { ...state, blockers: [...state.blockers, speaker] };
+      if (state.blockers.some((b) => b.memberId === speaker.id)) return state;
+      return {
+        ...state,
+        blockers: [
+          ...state.blockers,
+          { id: action.localId, dbId: null, memberId: speaker.id, name: speaker.name, note: "" },
+        ],
+      };
     }
     case "MARK_CAPACITY": {
       const speaker = state.speakers[state.currentIndex];
-      if (state.capacity.some((c) => c.id === speaker.id)) return state;
-      return { ...state, capacity: [...state.capacity, speaker] };
+      if (state.capacity.some((c) => c.memberId === speaker.id)) return state;
+      return {
+        ...state,
+        capacity: [
+          ...state.capacity,
+          { id: action.localId, dbId: null, memberId: speaker.id, name: speaker.name, claimed: false },
+        ],
+      };
     }
+    case "SET_BLOCKER_DB_ID":
+      return {
+        ...state,
+        blockers: state.blockers.map((b) =>
+          b.id === action.localId ? { ...b, dbId: action.dbId } : b,
+        ),
+      };
+    case "SET_CAPACITY_DB_ID":
+      return {
+        ...state,
+        capacity: state.capacity.map((c) =>
+          c.id === action.localId ? { ...c, dbId: action.dbId } : c,
+        ),
+      };
+    case "UPDATE_BLOCKER_NOTE":
+      return {
+        ...state,
+        blockers: state.blockers.map((b) =>
+          b.id === action.id ? { ...b, note: action.note } : b,
+        ),
+      };
+    case "TOGGLE_CAPACITY_CLAIMED":
+      return {
+        ...state,
+        capacity: state.capacity.map((c) =>
+          c.id === action.id ? { ...c, claimed: !c.claimed } : c,
+        ),
+      };
     case "REMOVE_BLOCKER":
       return {
         ...state,
@@ -107,8 +216,10 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
         ...state,
         capacity: state.capacity.filter((c) => c.id !== action.id),
       };
-    case "END_STANDUP":
-      return { ...state, phase: "complete", timeLeft: 0 };
+    case "END_STANDUP": {
+      const speakerLog = logCurrentSpeaker(state);
+      return { ...state, phase: "complete", timeLeft: 0, speakerLog };
+    }
     default:
       return state;
   }
@@ -123,6 +234,8 @@ const initialState: StandupState = {
   blockers: [],
   capacity: [],
   isShuffled: false,
+  speakerLog: [],
+  absentIds: [],
 };
 
 function formatDate(): string {
@@ -148,8 +261,12 @@ export function StandupSession({
   const [state, dispatch] = useReducer(reducer, initialState);
   const [copied, setCopied] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const sessionEndedRef = useRef(false);
+  const noteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const timePerSpeaker = durationMinutes * 60 + durationSeconds;
+  const presentMembers = members.filter((m) => !state.absentIds.includes(m.id));
 
   useEffect(() => {
     if (state.phase === "active") {
@@ -159,6 +276,33 @@ export function StandupSession({
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [state.phase, state.currentIndex]);
+
+  async function startSession(orderMode: "default" | "shuffled", speakers: TeamMember[]) {
+    sessionEndedRef.current = false;
+    dispatch(
+      orderMode === "default"
+        ? { type: "START_DEFAULT", speakers, timePerSpeaker }
+        : { type: "START_SHUFFLED", speakers, timePerSpeaker },
+    );
+    const absentees = members.filter((m) => state.absentIds.includes(m.id));
+    const id = await startStandupSession(orderMode, [
+      ...speakers.map((s) => ({
+        memberId: s.id,
+        name: s.name,
+        present: true,
+        allottedSeconds: timePerSpeaker,
+        usedSeconds: 0,
+      })),
+      ...absentees.map((a) => ({
+        memberId: a.id,
+        name: a.name,
+        present: false,
+        allottedSeconds: 0,
+        usedSeconds: 0,
+      })),
+    ]);
+    sessionIdRef.current = id;
+  }
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -171,27 +315,17 @@ export function StandupSession({
       const key = e.key.toLowerCase();
 
       if (state.phase === "idle") {
-        if (key === "d") {
-          dispatch({
-            type: "START_DEFAULT",
-            speakers: members,
-            timePerSpeaker,
-          });
-        } else if (key === "s") {
-          dispatch({
-            type: "START_SHUFFLED",
-            speakers: members,
-            timePerSpeaker,
-          });
-        }
+        if (key === "d") startSession("default", presentMembers);
+        else if (key === "s") startSession("shuffled", presentMembers);
       } else if (state.phase === "active") {
-        if (key === "b") dispatch({ type: "MARK_BLOCKER" });
-        else if (key === "c") dispatch({ type: "MARK_CAPACITY" });
+        if (key === "b") handleMarkBlocker();
+        else if (key === "c") handleMarkCapacity();
         else if (key === "n") dispatch({ type: "NEXT_SPEAKER" });
         else if (key === "v") dispatch({ type: "END_STANDUP" });
       }
     },
-    [state.phase, members, timePerSpeaker],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.phase, presentMembers, timePerSpeaker],
   );
 
   useEffect(() => {
@@ -199,13 +333,76 @@ export function StandupSession({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  // Persist the session once it reaches "complete" (auto-advance or manual end).
+  useEffect(() => {
+    if (state.phase === "complete" && sessionIdRef.current && !sessionEndedRef.current) {
+      sessionEndedRef.current = true;
+      const absentees = members.filter((m) => state.absentIds.includes(m.id));
+      endStandupSession(sessionIdRef.current, [
+        ...state.speakerLog,
+        ...absentees.map((a) => ({
+          memberId: a.id,
+          name: a.name,
+          present: false,
+          allottedSeconds: 0,
+          usedSeconds: 0,
+        })),
+      ]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase]);
+
+  async function handleMarkBlocker() {
+    const speaker = state.speakers[state.currentIndex];
+    if (!speaker || state.blockers.some((b) => b.memberId === speaker.id)) return;
+    const localId = Math.random().toString(36).slice(2);
+    dispatch({ type: "MARK_BLOCKER", localId });
+    const dbId = await reportBlocker(sessionIdRef.current, speaker.id, speaker.name);
+    dispatch({ type: "SET_BLOCKER_DB_ID", localId, dbId });
+  }
+
+  async function handleMarkCapacity() {
+    const speaker = state.speakers[state.currentIndex];
+    if (!speaker || state.capacity.some((c) => c.memberId === speaker.id)) return;
+    const localId = Math.random().toString(36).slice(2);
+    dispatch({ type: "MARK_CAPACITY", localId });
+    const dbId = await reportCapacity(sessionIdRef.current, speaker.id, speaker.name);
+    dispatch({ type: "SET_CAPACITY_DB_ID", localId, dbId });
+  }
+
+  function handleNoteChange(blockerId: string, dbId: string | null, note: string) {
+    dispatch({ type: "UPDATE_BLOCKER_NOTE", id: blockerId, note });
+    if (!dbId) return;
+    if (noteTimers.current[blockerId]) clearTimeout(noteTimers.current[blockerId]);
+    noteTimers.current[blockerId] = setTimeout(() => {
+      updateBlockerNote(dbId, note);
+    }, 600);
+  }
+
+  function handleToggleClaimed(entry: CapacityEntry) {
+    dispatch({ type: "TOGGLE_CAPACITY_CLAIMED", id: entry.id });
+    if (entry.dbId) claimCapacity(entry.dbId, !entry.claimed);
+  }
+
+  function handleRemoveBlocker(entry: BlockerEntry) {
+    dispatch({ type: "REMOVE_BLOCKER", id: entry.id });
+    if (entry.dbId) deleteBlocker(entry.dbId);
+  }
+
+  function handleRemoveCapacity(entry: CapacityEntry) {
+    dispatch({ type: "REMOVE_CAPACITY", id: entry.id });
+    if (entry.dbId) deleteCapacityOffer(entry.dbId);
+  }
+
   function copyToClipboard() {
     const lines: string[] = [];
     lines.push(`Standup Notes — ${formatDate()}`);
     lines.push("");
     if (state.blockers.length > 0) {
       lines.push("People with blockers:");
-      state.blockers.forEach((b) => lines.push(`- ${b.name}`));
+      state.blockers.forEach((b) =>
+        lines.push(`- ${b.name}${b.note ? `: ${b.note}` : ""}`),
+      );
     }
     if (state.capacity.length > 0) {
       if (state.blockers.length > 0) lines.push("");
@@ -277,29 +474,45 @@ export function StandupSession({
             <p className="mt-4 font-display text-5xl font-black tracking-wider lg:mt-8 lg:text-6xl">
               --:--
             </p>
+
+            {members.length > 0 && (
+              <div className="mt-6 w-full max-w-md lg:mt-8">
+                <p className="mb-2 text-center text-xs font-medium text-muted-foreground">
+                  Who&apos;s here today?
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {members.map((m) => {
+                    const absent = state.absentIds.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => dispatch({ type: "TOGGLE_ABSENT", id: m.id })}
+                        className={cn(
+                          "min-h-[36px] rounded-pill border px-3 py-1.5 text-xs font-medium transition-colors",
+                          absent
+                            ? "border-border text-muted-foreground line-through"
+                            : "border-secondary bg-secondary/10 text-secondary",
+                        )}
+                      >
+                        {m.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="mt-4 flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-4 lg:mt-8">
               <button
-                onClick={() =>
-                  dispatch({
-                    type: "START_DEFAULT",
-                    speakers: members,
-                    timePerSpeaker,
-                  })
-                }
-                disabled={members.length === 0}
+                onClick={() => startSession("default", presentMembers)}
+                disabled={presentMembers.length === 0}
                 className="min-h-[44px] rounded-button border border-secondary px-6 py-3 text-sm font-medium text-secondary hover:bg-secondary hover:text-secondary-foreground disabled:opacity-50"
               >
                 Default order<span className="hidden lg:inline"> (D)</span>
               </button>
               <button
-                onClick={() =>
-                  dispatch({
-                    type: "START_SHUFFLED",
-                    speakers: members,
-                    timePerSpeaker,
-                  })
-                }
-                disabled={members.length === 0}
+                onClick={() => startSession("shuffled", presentMembers)}
+                disabled={presentMembers.length === 0}
                 className="min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50"
               >
                 Shuffled order<span className="hidden lg:inline"> (S)</span>
@@ -349,13 +562,13 @@ export function StandupSession({
             </div>
             <div className="mt-4 flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-4 lg:mt-8">
               <button
-                onClick={() => dispatch({ type: "MARK_BLOCKER" })}
+                onClick={handleMarkBlocker}
                 className="min-h-[44px] rounded-button bg-destructive px-6 py-3 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
               >
                 Mark blocker<span className="hidden lg:inline"> (B)</span>
               </button>
               <button
-                onClick={() => dispatch({ type: "MARK_CAPACITY" })}
+                onClick={handleMarkCapacity}
                 className="min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90"
               >
                 Mark capacity<span className="hidden lg:inline"> (C)</span>
@@ -376,13 +589,7 @@ export function StandupSession({
             <h1 className="mt-1 text-2xl font-bold lg:mt-2 lg:text-3xl">Great job, team!</h1>
             <TimerDisplay minutes={0} seconds={0} className="mt-4 lg:mt-8" />
             <button
-              onClick={() =>
-                dispatch({
-                  type: "START_DEFAULT",
-                  speakers: members,
-                  timePerSpeaker,
-                })
-              }
+              onClick={() => startSession("default", presentMembers)}
               className="mt-4 min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 lg:mt-8"
             >
               Start new standup
@@ -426,19 +633,23 @@ export function StandupSession({
           ) : (
             <div className="flex flex-col gap-2">
               {state.blockers.map((b) => (
-                <div
-                  key={b.id}
-                  className="flex items-center justify-between rounded-input bg-muted px-3 py-2"
-                >
-                  <span className="text-sm">{b.name}</span>
-                  <button
-                    onClick={() =>
-                      dispatch({ type: "REMOVE_BLOCKER", id: b.id })
-                    }
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                <div key={b.id} className="rounded-input bg-muted px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">{b.name}</span>
+                    <button
+                      onClick={() => handleRemoveBlocker(b)}
+                      className="flex min-h-[32px] min-w-[32px] items-center justify-center text-muted-foreground hover:text-destructive"
+                      aria-label="Remove blocker"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <input
+                    value={b.note}
+                    onChange={(e) => handleNoteChange(b.id, b.dbId, e.target.value)}
+                    placeholder="Add a note (optional)"
+                    className="mt-1 min-h-[32px] w-full rounded-input border border-border bg-background px-2 py-1 text-xs placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                  />
                 </div>
               ))}
             </div>
@@ -456,14 +667,31 @@ export function StandupSession({
               {state.capacity.map((c) => (
                 <div
                   key={c.id}
-                  className="flex items-center justify-between rounded-input bg-muted px-3 py-2"
+                  className="flex items-center justify-between gap-2 rounded-input bg-muted px-3 py-2"
                 >
-                  <span className="text-sm">{c.name}</span>
                   <button
-                    onClick={() =>
-                      dispatch({ type: "REMOVE_CAPACITY", id: c.id })
-                    }
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-destructive"
+                    onClick={() => handleToggleClaimed(c)}
+                    disabled={!c.dbId}
+                    className="flex min-h-[32px] flex-1 items-center gap-2 text-left disabled:opacity-60"
+                  >
+                    <span
+                      className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border",
+                        c.claimed
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border",
+                      )}
+                    >
+                      {c.claimed && <Check className="h-3 w-3" />}
+                    </span>
+                    <span className={cn("text-sm", c.claimed && "text-muted-foreground line-through")}>
+                      {c.name}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => handleRemoveCapacity(c)}
+                    className="flex min-h-[32px] min-w-[32px] items-center justify-center text-muted-foreground hover:text-destructive"
+                    aria-label="Remove capacity"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

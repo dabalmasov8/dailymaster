@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const mainLinks = [
   { href: "/standup", label: "Daily Standup" },
   { href: "/newcomer", label: "Newcomer Intro" },
+  { href: "/insights", label: "Insights" },
 ];
 
 const allLinks = [
