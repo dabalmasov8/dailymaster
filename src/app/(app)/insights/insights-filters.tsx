@@ -61,6 +61,7 @@ export function InsightsFilters({
           type="date"
           defaultValue={from}
           onChange={(e) => setCustomRange(e.target.value, to ?? "")}
+          onClick={(e) => e.currentTarget.showPicker?.()}
           className={dateInputClasses(activePreset === "custom")}
           aria-label="Custom range start date"
         />
@@ -69,6 +70,7 @@ export function InsightsFilters({
           type="date"
           defaultValue={to}
           onChange={(e) => setCustomRange(from ?? "", e.target.value)}
+          onClick={(e) => e.currentTarget.showPicker?.()}
           className={dateInputClasses(activePreset === "custom")}
           aria-label="Custom range end date"
         />
