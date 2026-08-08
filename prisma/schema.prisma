@@ -26,16 +26,39 @@ model User {
 }
 
 model ApiToken {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name        String
-  tokenHash   String    @unique
-  tokenPrefix String
-  createdAt   DateTime  @default(now())
-  lastUsedAt  DateTime?
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  tokenHash     String    @unique
+  tokenPrefix   String
+  oauthClientId String? // set when this token was minted via the OAuth flow rather than Settings
+  createdAt     DateTime  @default(now())
+  lastUsedAt    DateTime?
 
   @@index([userId])
+}
+
+// A client application registered via Dynamic Client Registration (RFC 7591),
+// e.g. Claude.ai registering itself the first time a user connects.
+model OAuthClient {
+  id           String   @id @default(cuid()) // this is the OAuth client_id
+  clientName   String?
+  redirectUris Json // string[]
+  createdAt    DateTime @default(now())
+}
+
+// Short-lived authorization code, exchanged once at /oauth/token.
+model OAuthCode {
+  code                String   @id @default(cuid())
+  clientId            String
+  userId              String
+  redirectUri         String
+  codeChallenge       String
+  codeChallengeMethod String   @default("S256")
+  scope               String?
+  expiresAt           DateTime
+  createdAt           DateTime @default(now())
 }
 
 model StandupSession {

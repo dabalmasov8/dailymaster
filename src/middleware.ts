@@ -10,6 +10,12 @@ const isPublicRoute = createRouteMatcher([
   "/icons/(.*)",
   // Authenticated via its own Bearer token, not a Clerk session — see src/app/api/mcp/route.ts
   "/api/mcp",
+  // OAuth machine-to-machine endpoints — no Clerk session involved.
+  // /oauth/authorize is deliberately NOT here: it needs a signed-in user,
+  // and Clerk's own protect() handles the sign-in redirect and return.
+  "/.well-known/(.*)",
+  "/oauth/register",
+  "/oauth/token",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

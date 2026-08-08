@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { verifyApiToken } from "@/lib/mcp-auth";
 import { registerTools } from "@/lib/mcp/tools";
+import { ISSUER } from "@/lib/oauth";
 
 const JSONRPC_UNAUTHORIZED = {
   jsonrpc: "2.0" as const,
@@ -25,7 +26,12 @@ async function authenticate(req: Request) {
 export async function POST(req: Request) {
   const user = await authenticate(req);
   if (!user) {
-    return Response.json(JSONRPC_UNAUTHORIZED, { status: 401 });
+    return Response.json(JSONRPC_UNAUTHORIZED, {
+      status: 401,
+      headers: {
+        "WWW-Authenticate": `Bearer resource_metadata="${ISSUER}/.well-known/oauth-protected-resource"`,
+      },
+    });
   }
 
   const server = new McpServer({ name: "dailymaster", version: "1.0.0" });

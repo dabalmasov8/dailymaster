@@ -63,7 +63,26 @@ V2 built the data; V2.1 makes it queryable by an AI assistant instead of only by
 1. **Clerk's own middleware was blocking the route before my code ever ran.** DailyMaster protects every route by default and only exempts an explicit allowlist. `/api/mcp` authenticates itself via Bearer token, not a Clerk session — but I'd forgotten to add it to that allowlist, so Clerk's `auth.protect()` rejected every request before my token check even executed. A request with a *valid* token would have failed identically to one with no token at all. This only shows up when you test the authenticated path, not just the unauthenticated one.
 2. **The transport was returning empty responses.** The MCP SDK defaults to Server-Sent Events for its responses, and my first version explicitly closed the transport immediately after getting the `Response` object back — which cut the stream before it had actually flushed the reply. The fix was two lines: set `enableJsonResponse: true` (our tools are simple request/response, no server-initiated streaming needed) and stop closing the transport early. Both bugs returned HTTP 200 — nothing about the status code would have told you something was wrong. Only calling the real endpoint with a real token surfaced it.
 
-**Deliberately cut from this milestone:** OAuth-based auth (so a client could connect without manually copying a token) and MCP resources/prompts beyond tools. Personal access tokens are the smaller, well-understood piece that gets a working connector shipped now; OAuth is worth doing once there's a reason more demanding than "slightly nicer setup."
+**Deliberately cut from this milestone:** OAuth-based auth (so a client could connect without manually copying a token) and MCP resources/prompts beyond tools. Personal access tokens are the smaller, well-understood piece that gets a working connector shipped now. OAuth turned out to matter sooner than "eventually" — see V2.2.
+
+---
+
+## V2.2 — OAuth, so Claude.ai's Connectors actually work
+
+Personal access tokens from V2.1 work great for Claude Desktop and Claude Code, where you can paste a header into a config file. They don't work at all for Claude.ai's own Connectors UI — that flow doesn't have a field for a token. It expects the server to speak OAuth 2.1 and just goes straight to a browser handshake. Found this out the direct way: added the connector by URL, watched it bounce to a browser tab, and land on "Couldn't connect." No error code, no explanation — the client had no way to tell the user what was actually missing, because from its side, nothing about the server said "this needs a token" at all.
+
+**What shipped:**
+
+- **Full OAuth 2.1 authorization server, built into the same app.** DailyMaster now *is* the authorization server for its own MCP resource — no third-party OAuth provider, no separate service. `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server` (RFC 9728 and RFC 8414) let a client discover, from the server URL alone, that OAuth is required and where the endpoints live.
+- **Dynamic Client Registration** (RFC 7591) at `/oauth/register`. This is the part that makes "just add the URL" work at all — Claude.ai registers itself as a client on the fly, the first time a user connects, instead of me having to hand out a client ID in advance.
+- **A real consent screen**, not a rubber stamp. `/oauth/authorize` is a normal DailyMaster page — Clerk protects it like any other page, so signing in happens through the same flow you already use. Once signed in, you see exactly what's being requested ("read your standups, blockers, and capacity offers; mark blockers resolved") with Allow/Deny, and the redirect URI is checked against what the client registered before anything is trusted.
+- **PKCE-only token exchange, no client secret.** `/oauth/token` verifies the authorization code, the redirect URI, and the PKCE code verifier before minting anything. The code is deleted the moment it's looked up — valid or not — so a leaked or guessed code can only ever be tried once.
+- **Same token infrastructure as V2.1, not a parallel system.** An OAuth-issued access token *is* a row in the same `ApiToken` table personal access tokens live in, just tagged with which OAuth client created it. Settings → MCP lists both kinds together, labelled, and revokes either one the same way. One place to see everything with access to your data, not two.
+- **The 401 response now tells clients how to authenticate.** `/api/mcp` returns `WWW-Authenticate: Bearer resource_metadata="..."` on a 401, per the MCP authorization spec — the exact header that lets a well-behaved client go from "got rejected" to "here's where to get a token" without a human needing to know any of this exists.
+
+**Verified before calling it done:** registered a real client through `/oauth/register`, exchanged a real authorization code for a real access token through `/oauth/token`, and used that token to call `list_team_members` through the actual `/api/mcp` endpoint — the same path Claude.ai would take. Also confirmed the failure modes on purpose: replaying a spent authorization code fails, a wrong PKCE verifier fails, registering a client with no redirect URI fails. All test data — the OAuth client, the codes, the seeded user — was created through temporary routes and deleted afterward; none of it shipped.
+
+**Deliberately cut from this milestone:** refresh tokens. Access tokens live 90 days; when one expires, the client just re-runs the authorization flow instead of silently renewing in the background. That's a slightly worse experience once every three months and a meaningfully smaller amount of code to get right — no refresh-token rotation, no reuse-detection logic, no extra row type. Worth revisiting only if 90 days turns out to be the wrong number in practice, not before.
 
 ---
 
@@ -107,7 +126,11 @@ Every standup you run now gets logged — start time, end time, who spoke, who w
 
 ### Step 7 — Connect an AI assistant
 
-Go to Settings → MCP and generate a token — it's shown once, so copy it somewhere safe. Add `https://dailymaster.online/api/mcp` as an MCP server in Claude Desktop (or any MCP-compatible client) with that token as a Bearer credential, and it can answer questions like "what blockers are still open" or "how has our standup length trended this month" directly from your team's data — and mark a blocker resolved without you opening the app.
+**Claude.ai (Connectors):** add `https://dailymaster.online` as a custom connector. It signs you in and shows a consent screen — no token to copy.
+
+**Claude Desktop, Claude Code, or any other MCP client:** go to Settings → MCP and generate a token — it's shown once, so copy it somewhere safe. Add `https://dailymaster.online/api/mcp` as an MCP server with that token as a Bearer credential.
+
+Either way, the assistant can answer questions like "what blockers are still open" or "how has our standup length trended this month" directly from your team's data — and mark a blocker resolved without you opening the app.
 
 ---
 
@@ -132,6 +155,8 @@ Go to Settings → MCP and generate a token — it's shown once, so copy it some
 **A blocker board instead of a blocker list.** Blockers used to evaporate the moment a standup ended — nothing recorded whether "waiting on Anna" from Tuesday ever got resolved. The Insights page adds a four-column board (New, In progress, Resolved, Won't fix) so a blocker becomes a thing you can actually track and close, not just a name in a sidebar for 15 minutes.
 
 **A token you see exactly once.** When you generate an MCP access token, it's displayed in full one time, with a copy button and an explicit warning — after that, only a hashed version exists in the database and the UI shows a truncated prefix for identification. This is the same pattern GitHub and Linear use for personal access tokens, and it exists because the alternative (storing or re-displaying the plaintext secret) is a real security liability, not a hypothetical one.
+
+**One consent screen, two ways to get a token.** Whether you generate a personal access token in Settings or connect through Claude.ai's OAuth flow, you land on the same underlying decision: something is about to read your standup data. The OAuth consent screen spells out exactly what's being granted — not a generic "allow access" — and both paths end up in the same revocable token list, so there's one place to see everything connected to your account, not two systems to remember to check.
 
 ---
 

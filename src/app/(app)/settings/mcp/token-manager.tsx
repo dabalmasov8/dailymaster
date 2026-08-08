@@ -10,6 +10,7 @@ interface TokenSummary {
   tokenPrefix: string;
   createdAt: string;
   lastUsedAt: string | null;
+  viaOAuth: boolean;
 }
 
 function formatDate(iso: string): string {
@@ -31,7 +32,14 @@ export function TokenManager({ initialTokens }: { initialTokens: TokenSummary[] 
       const tokenName = name.trim() || "Untitled token";
       setRevealedToken({ id, name: tokenName, token });
       setTokens((prev) => [
-        { id, name: tokenName, tokenPrefix: token.slice(0, 14), createdAt: new Date().toISOString(), lastUsedAt: null },
+        {
+          id,
+          name: tokenName,
+          tokenPrefix: token.slice(0, 14),
+          createdAt: new Date().toISOString(),
+          lastUsedAt: null,
+          viaOAuth: false,
+        },
         ...prev,
       ]);
       setName("");
@@ -96,7 +104,14 @@ export function TokenManager({ initialTokens }: { initialTokens: TokenSummary[] 
               className="flex items-center justify-between gap-2 rounded-input bg-muted px-3 py-2.5"
             >
               <div>
-                <p className="text-sm font-medium">{t.name}</p>
+                <p className="flex items-center gap-1.5 text-sm font-medium">
+                  {t.name}
+                  {t.viaOAuth && (
+                    <span className="rounded-pill bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                      OAuth
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {t.tokenPrefix}••••••&nbsp;·&nbsp;Created {formatDate(t.createdAt)}
                   {t.lastUsedAt ? ` · Last used ${formatDate(t.lastUsedAt)}` : " · Never used"}

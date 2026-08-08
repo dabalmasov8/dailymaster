@@ -9,7 +9,14 @@ export default async function McpSettingsPage() {
   const tokens = await db.apiToken.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, tokenPrefix: true, createdAt: true, lastUsedAt: true },
+    select: {
+      id: true,
+      name: true,
+      tokenPrefix: true,
+      createdAt: true,
+      lastUsedAt: true,
+      oauthClientId: true,
+    },
   });
 
   return (
@@ -17,10 +24,11 @@ export default async function McpSettingsPage() {
       <section>
         <h2 className="mb-2 text-sm font-semibold">MCP access</h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Connect an AI assistant (Claude, or any MCP client) to your DailyMaster data.
-          Generate a token below and give it to your client — it can then read your
+          Connect an AI assistant to your DailyMaster data. It can read your
           standup history, blockers, and capacity offers, and change a blocker&apos;s
-          status on your behalf.
+          status on your behalf. Tokens created through Claude.ai&apos;s own
+          connector sign-in flow show up here too, labelled &quot;OAuth&quot; — revoke
+          them the same way as any other token.
         </p>
         <TokenManager
           initialTokens={tokens.map((t) => ({
@@ -29,12 +37,22 @@ export default async function McpSettingsPage() {
             tokenPrefix: t.tokenPrefix,
             createdAt: t.createdAt.toISOString(),
             lastUsedAt: t.lastUsedAt ? t.lastUsedAt.toISOString() : null,
+            viaOAuth: t.oauthClientId !== null,
           }))}
         />
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold">Connect a client</h2>
+        <h2 className="mb-2 text-sm font-semibold">Claude.ai Connectors</h2>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Add <code className="rounded-input bg-muted px-1.5 py-0.5 text-xs">https://dailymaster.online</code>{" "}
+          as a custom connector in Claude.ai — it will sign you in and ask you to
+          approve access, no token to copy.
+        </p>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-semibold">Claude Desktop / Claude Code (manual token)</h2>
         <p className="mb-3 text-sm text-muted-foreground">
           Server URL:{" "}
           <code className="rounded-input bg-muted px-1.5 py-0.5 text-xs">
@@ -42,13 +60,11 @@ export default async function McpSettingsPage() {
           </code>
           . Send your token as a Bearer token in the Authorization header.
         </p>
-        <p className="mb-2 text-xs font-medium text-muted-foreground">
-          Example: Claude Desktop config (claude_desktop_config.json)
-        </p>
         <pre className="overflow-x-auto rounded-input bg-muted p-3 text-xs">
 {`{
   "mcpServers": {
     "dailymaster": {
+      "type": "http",
       "url": "https://dailymaster.online/api/mcp",
       "headers": {
         "Authorization": "Bearer dm_live_..."
