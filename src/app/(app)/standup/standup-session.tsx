@@ -1,7 +1,7 @@
 "use client";
 
 import { useReducer, useEffect, useCallback, useRef, useState } from "react";
-import { Shuffle, ListOrdered, Trash2, ClipboardCheck, FileText, MessageSquarePlus } from "lucide-react";
+import { Shuffle, ListOrdered, Trash2, ClipboardCheck, FileText, MessageSquarePlus, UserX } from "lucide-react";
 import { TimerDisplay } from "@/components/ui/timer-display";
 import { cn } from "@/lib/utils";
 import { KeyboardShortcut } from "@/components/ui/keyboard-shortcut";
@@ -14,7 +14,7 @@ import {
   reportCapacity,
   deleteCapacityOffer,
 } from "./actions";
-import type { TeamMember, Question } from "@/types";
+import type { TeamMember, Question, ShortcutMap } from "@/types";
 
 type LoggedSpeaker = {
   memberId: string;
@@ -50,16 +50,15 @@ type StandupState = {
   isShuffled: boolean;
   speakerLog: LoggedSpeaker[];
   absentIds: string[];
-  attendanceConfirmed: boolean;
 };
 
 type StandupAction =
   | { type: "TOGGLE_ABSENT"; id: string }
-  | { type: "CONFIRM_ATTENDANCE" }
   | { type: "START_DEFAULT"; speakers: TeamMember[]; timePerSpeaker: number }
   | { type: "START_SHUFFLED"; speakers: TeamMember[]; timePerSpeaker: number }
   | { type: "TICK" }
   | { type: "NEXT_SPEAKER" }
+  | { type: "MARK_ABSENT_CURRENT" }
   | { type: "MARK_BLOCKER"; localId: string }
   | { type: "MARK_CAPACITY"; localId: string }
   | { type: "SET_BLOCKER_DB_ID"; localId: string; dbId: string }
@@ -94,6 +93,18 @@ function logCurrentSpeaker(state: StandupState): LoggedSpeaker[] {
   ];
 }
 
+function advanceOrComplete(state: StandupState, speakerLog: LoggedSpeaker[]): StandupState {
+  if (state.currentIndex >= state.speakers.length - 1) {
+    return { ...state, phase: "complete", timeLeft: 0, speakerLog };
+  }
+  return {
+    ...state,
+    currentIndex: state.currentIndex + 1,
+    timeLeft: state.totalTime,
+    speakerLog,
+  };
+}
+
 function reducer(state: StandupState, action: StandupAction): StandupState {
   switch (action.type) {
     case "TOGGLE_ABSENT":
@@ -102,10 +113,7 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
         absentIds: state.absentIds.includes(action.id)
           ? state.absentIds.filter((id) => id !== action.id)
           : [...state.absentIds, action.id],
-        attendanceConfirmed: false,
       };
-    case "CONFIRM_ATTENDANCE":
-      return { ...state, attendanceConfirmed: true };
     case "START_DEFAULT":
       return {
         ...state,
@@ -118,7 +126,6 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
         capacity: [],
         isShuffled: false,
         speakerLog: [],
-        attendanceConfirmed: false,
       };
     case "START_SHUFFLED":
       return {
@@ -132,34 +139,23 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
         capacity: [],
         isShuffled: true,
         speakerLog: [],
-        attendanceConfirmed: false,
       };
     case "TICK": {
       if (state.timeLeft <= 1) {
-        const speakerLog = logCurrentSpeaker(state);
-        if (state.currentIndex >= state.speakers.length - 1) {
-          return { ...state, phase: "complete", timeLeft: 0, speakerLog };
-        }
-        return {
-          ...state,
-          currentIndex: state.currentIndex + 1,
-          timeLeft: state.totalTime,
-          speakerLog,
-        };
+        return advanceOrComplete(state, logCurrentSpeaker(state));
       }
       return { ...state, timeLeft: state.timeLeft - 1 };
     }
-    case "NEXT_SPEAKER": {
-      const speakerLog = logCurrentSpeaker(state);
-      if (state.currentIndex >= state.speakers.length - 1) {
-        return { ...state, phase: "complete", timeLeft: 0, speakerLog };
-      }
-      return {
-        ...state,
-        currentIndex: state.currentIndex + 1,
-        timeLeft: state.totalTime,
-        speakerLog,
-      };
+    case "NEXT_SPEAKER":
+      return advanceOrComplete(state, logCurrentSpeaker(state));
+    case "MARK_ABSENT_CURRENT": {
+      const speaker = state.speakers[state.currentIndex];
+      if (!speaker) return state;
+      const speakerLog = [
+        ...state.speakerLog,
+        { memberId: speaker.id, name: speaker.name, present: false, allottedSeconds: 0, usedSeconds: 0 },
+      ];
+      return advanceOrComplete(state, speakerLog);
     }
     case "MARK_BLOCKER": {
       const speaker = state.speakers[state.currentIndex];
@@ -219,7 +215,7 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
       return { ...state, phase: "complete", timeLeft: 0, speakerLog };
     }
     case "RETURN_TO_IDLE":
-      return { ...state, phase: "idle", attendanceConfirmed: false };
+      return { ...state, phase: "idle" };
     default:
       return state;
   }
@@ -236,7 +232,6 @@ const initialState: StandupState = {
   isShuffled: false,
   speakerLog: [],
   absentIds: [],
-  attendanceConfirmed: false,
 };
 
 function formatDate(): string {
@@ -253,11 +248,13 @@ export function StandupSession({
   questions,
   durationMinutes,
   durationSeconds,
+  shortcuts,
 }: {
   members: TeamMember[];
   questions: Question[];
   durationMinutes: number;
   durationSeconds: number;
+  shortcuts: ShortcutMap;
 }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [copied, setCopied] = useState(false);
@@ -316,18 +313,18 @@ export function StandupSession({
       const key = e.key.toLowerCase();
 
       if (state.phase === "idle") {
-        if (!state.attendanceConfirmed) return;
-        if (key === "d") startSession("default", presentMembers);
-        else if (key === "s") startSession("shuffled", presentMembers);
+        if (key === shortcuts.default) startSession("default", presentMembers);
+        else if (key === shortcuts.shuffled) startSession("shuffled", presentMembers);
       } else if (state.phase === "active") {
-        if (key === "b") handleMarkBlocker();
-        else if (key === "c") handleMarkCapacity();
-        else if (key === "n") dispatch({ type: "NEXT_SPEAKER" });
-        else if (key === "v") dispatch({ type: "END_STANDUP" });
+        if (key === shortcuts.blocker) handleMarkBlocker();
+        else if (key === shortcuts.capacity) handleMarkCapacity();
+        else if (key === shortcuts.next) dispatch({ type: "NEXT_SPEAKER" });
+        else if (key === shortcuts.absent) dispatch({ type: "MARK_ABSENT_CURRENT" });
+        else if (key === shortcuts.end) dispatch({ type: "END_STANDUP" });
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state.phase, state.attendanceConfirmed, presentMembers, timePerSpeaker],
+    [state.phase, presentMembers, timePerSpeaker, shortcuts],
   );
 
   useEffect(() => {
@@ -417,6 +414,7 @@ export function StandupSession({
   const minutes = Math.floor(state.timeLeft / 60);
   const seconds = state.timeLeft % 60;
   const currentSpeaker = state.speakers[state.currentIndex];
+  const key = (k: keyof ShortcutMap) => shortcuts[k].toUpperCase();
 
   return (
     <div className="flex flex-col gap-4 px-4 py-4 lg:flex-row lg:gap-8 lg:px-10 lg:py-10">
@@ -441,18 +439,16 @@ export function StandupSession({
           <h3 className="mb-2 text-sm font-semibold">Shortcuts</h3>
           {state.phase === "idle" ? (
             <div className="flex flex-col gap-1.5">
-              <KeyboardShortcut shortcutKey="D" description="Default order" />
-              <KeyboardShortcut shortcutKey="S" description="Shuffled order" />
+              <KeyboardShortcut shortcutKey={key("default")} description="Default order" />
+              <KeyboardShortcut shortcutKey={key("shuffled")} description="Shuffled order" />
             </div>
           ) : state.phase === "active" ? (
             <div className="flex flex-col gap-1.5">
-              <KeyboardShortcut shortcutKey="B" description="Mark blocker" />
-              <KeyboardShortcut
-                shortcutKey="C"
-                description="Mark capacity"
-              />
-              <KeyboardShortcut shortcutKey="N" description="Next speaker" />
-              <KeyboardShortcut shortcutKey="V" description="End standup" />
+              <KeyboardShortcut shortcutKey={key("blocker")} description="Mark blocker" />
+              <KeyboardShortcut shortcutKey={key("capacity")} description="Mark capacity" />
+              <KeyboardShortcut shortcutKey={key("next")} description="Next speaker" />
+              <KeyboardShortcut shortcutKey={key("absent")} description="Mark absent" />
+              <KeyboardShortcut shortcutKey={key("end")} description="End standup" />
             </div>
           ) : null}
         </div>
@@ -496,46 +492,28 @@ export function StandupSession({
                     );
                   })}
                 </div>
-
-                <div className="mt-3 flex justify-center">
-                  {state.attendanceConfirmed ? (
-                    <p className="flex items-center gap-1.5 text-xs font-medium text-secondary">
-                      <ClipboardCheck className="h-3.5 w-3.5" />
-                      Attendance confirmed
-                    </p>
-                  ) : (
-                    <button
-                      onClick={() => dispatch({ type: "CONFIRM_ATTENDANCE" })}
-                      className="min-h-[36px] rounded-button border border-primary px-4 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
-                    >
-                      Confirm attendance
-                    </button>
-                  )}
-                </div>
+                <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                  Tap a name to mark them absent. Everyone else counted as present.
+                </p>
               </div>
             )}
 
             <div className="mt-4 flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:gap-4 lg:mt-8">
               <button
                 onClick={() => startSession("default", presentMembers)}
-                disabled={presentMembers.length === 0 || !state.attendanceConfirmed}
-                className="min-h-[44px] rounded-button border border-secondary px-6 py-3 text-sm font-medium text-secondary transition-all hover:bg-secondary hover:text-secondary-foreground active:scale-[0.98] disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-secondary disabled:active:scale-100"
+                disabled={presentMembers.length === 0}
+                className="min-h-[44px] rounded-button border border-secondary px-6 py-3 text-sm font-medium text-secondary transition-all hover:bg-secondary hover:text-secondary-foreground active:scale-[0.98] disabled:opacity-50"
               >
-                Default order<span className="hidden lg:inline"> (D)</span>
+                Default order<span className="hidden lg:inline"> ({key("default")})</span>
               </button>
               <button
                 onClick={() => startSession("shuffled", presentMembers)}
-                disabled={presentMembers.length === 0 || !state.attendanceConfirmed}
-                className="min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground transition-all hover:bg-secondary/90 active:scale-[0.98] disabled:opacity-50 disabled:hover:bg-secondary disabled:active:scale-100"
+                disabled={presentMembers.length === 0}
+                className="min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground transition-all hover:bg-secondary/90 active:scale-[0.98] disabled:opacity-50"
               >
-                Shuffled order<span className="hidden lg:inline"> (S)</span>
+                Shuffled order<span className="hidden lg:inline"> ({key("shuffled")})</span>
               </button>
             </div>
-            {members.length > 0 && !state.attendanceConfirmed && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Confirm who&apos;s here before starting.
-              </p>
-            )}
             {members.length === 0 && (
               <p className="mt-4 text-base text-muted-foreground lg:mt-6">
                 Add participants in{" "}
@@ -583,21 +561,29 @@ export function StandupSession({
                 onClick={handleMarkBlocker}
                 className="min-h-[44px] rounded-button bg-destructive px-6 py-3 text-sm font-medium text-destructive-foreground transition-all hover:bg-destructive/90 active:scale-[0.98]"
               >
-                Mark blocker<span className="hidden lg:inline"> (B)</span>
+                Mark blocker<span className="hidden lg:inline"> ({key("blocker")})</span>
               </button>
               <button
                 onClick={handleMarkCapacity}
                 className="min-h-[44px] rounded-button bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground transition-all hover:bg-secondary/90 active:scale-[0.98]"
               >
-                Mark capacity<span className="hidden lg:inline"> (C)</span>
+                Mark capacity<span className="hidden lg:inline"> ({key("capacity")})</span>
               </button>
               <button
                 onClick={() => dispatch({ type: "NEXT_SPEAKER" })}
                 className="min-h-[44px] rounded-button border border-secondary px-6 py-3 text-sm font-medium text-secondary transition-all hover:bg-secondary hover:text-secondary-foreground active:scale-[0.98]"
               >
-                Next speaker<span className="hidden lg:inline"> (N)</span>
+                Next speaker<span className="hidden lg:inline"> ({key("next")})</span>
               </button>
             </div>
+            <button
+              onClick={() => dispatch({ type: "MARK_ABSENT_CURRENT" })}
+              className="mt-3 flex min-h-[36px] items-center gap-1.5 rounded-button px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+            >
+              <UserX className="h-3.5 w-3.5" />
+              {currentSpeaker.name} isn&apos;t actually here
+              <span className="hidden lg:inline"> ({key("absent")})</span>
+            </button>
           </>
         )}
 

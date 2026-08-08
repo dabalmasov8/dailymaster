@@ -4,22 +4,25 @@ import { useOptimistic, useTransition } from "react";
 import { EditableListItem } from "@/components/ui/editable-list-item";
 import { AddItemInput } from "@/components/ui/add-item-input";
 import { DurationPicker } from "@/components/ui/duration-picker";
+import { KeyboardShortcutsEditor } from "./keyboard-shortcuts-editor";
 import {
   addStandupQuestion,
   updateStandupQuestion,
   deleteStandupQuestion,
   updateStandupDuration,
 } from "../actions";
-import type { Question } from "@/types";
+import type { Question, ShortcutMap } from "@/types";
 
 export function StandupSettings({
   initialQuestions,
   initialMinutes,
   initialSeconds,
+  initialShortcuts,
 }: {
   initialQuestions: Question[];
   initialMinutes: number;
   initialSeconds: number;
+  initialShortcuts: ShortcutMap;
 }) {
   const [optimisticQuestions, addOptimistic] = useOptimistic(
     initialQuestions,
@@ -75,6 +78,14 @@ export function StandupSettings({
           onMinutesChange={(m) => updateStandupDuration(m, initialSeconds)}
           onSecondsChange={(s) => updateStandupDuration(initialMinutes, s)}
         />
+      </section>
+
+      <section>
+        <h2 className="mb-1 text-sm font-semibold">Keyboard shortcuts</h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Click a key, then press a new one to remap it.
+        </p>
+        <KeyboardShortcutsEditor initialShortcuts={initialShortcuts} />
       </section>
     </div>
   );

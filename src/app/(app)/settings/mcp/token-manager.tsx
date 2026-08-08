@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Copy, Check, Trash2, Plus } from "lucide-react";
+import { useState, useEffect, useRef, useTransition } from "react";
+import { Copy, Check, Trash2, Plus, Undo2 } from "lucide-react";
 import { createApiToken, revokeApiToken } from "./actions";
 
 interface TokenSummary {
@@ -17,19 +17,49 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function defaultTokenName(): string {
+  const now = new Date();
+  const date = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const time = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return `Token from ${date}, ${time}`;
+}
+
+function PendingRevokeRow({ name, onUndo }: { name: string; onUndo: () => void }) {
+  const [countdown, setCountdown] = useState(5);
+  useEffect(() => {
+    const timer = setInterval(() => setCountdown((c) => c - 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-input bg-destructive/10 px-3 py-2.5">
+      <span className="text-sm text-muted-foreground line-through">{name}</span>
+      <button
+        onClick={onUndo}
+        className="flex min-h-[36px] items-center gap-1.5 rounded-input px-2 text-xs font-medium text-primary transition-colors hover:bg-primary/10 active:scale-95"
+      >
+        <Undo2 className="h-3.5 w-3.5" />
+        Undo ({countdown}s)
+      </button>
+    </div>
+  );
+}
+
 export function TokenManager({ initialTokens }: { initialTokens: TokenSummary[] }) {
   const [tokens, setTokens] = useState(initialTokens);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
   const [revealedToken, setRevealedToken] = useState<{ id: string; name: string; token: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [pendingRevokeIds, setPendingRevokeIds] = useState<string[]>([]);
+  const revokeTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [, startTransition] = useTransition();
 
   async function handleCreate() {
     setCreating(true);
     try {
       const { token, id } = await createApiToken(name);
-      const tokenName = name.trim() || "Untitled token";
+      const tokenName = name.trim() || defaultTokenName();
       setRevealedToken({ id, name: tokenName, token });
       setTokens((prev) => [
         {
@@ -49,10 +79,23 @@ export function TokenManager({ initialTokens }: { initialTokens: TokenSummary[] 
   }
 
   function handleRevoke(id: string) {
-    setTokens((prev) => prev.filter((t) => t.id !== id));
-    startTransition(() => {
-      revokeApiToken(id);
-    });
+    setPendingRevokeIds((prev) => [...prev, id]);
+    revokeTimers.current[id] = setTimeout(() => {
+      setTokens((prev) => prev.filter((t) => t.id !== id));
+      setPendingRevokeIds((prev) => prev.filter((p) => p !== id));
+      startTransition(() => {
+        revokeApiToken(id);
+      });
+      delete revokeTimers.current[id];
+    }, 5000);
+  }
+
+  function handleUndoRevoke(id: string) {
+    if (revokeTimers.current[id]) {
+      clearTimeout(revokeTimers.current[id]);
+      delete revokeTimers.current[id];
+    }
+    setPendingRevokeIds((prev) => prev.filter((p) => p !== id));
   }
 
   function handleCopy() {
@@ -98,34 +141,38 @@ export function TokenManager({ initialTokens }: { initialTokens: TokenSummary[] 
         {tokens.length === 0 ? (
           <p className="text-sm text-muted-foreground">No tokens yet.</p>
         ) : (
-          tokens.map((t) => (
-            <div
-              key={t.id}
-              className="flex items-center justify-between gap-2 rounded-input bg-muted px-3 py-2.5"
-            >
-              <div>
-                <p className="flex items-center gap-1.5 text-sm font-medium">
-                  {t.name}
-                  {t.viaOAuth && (
-                    <span className="rounded-pill bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                      OAuth
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {t.tokenPrefix}••••••&nbsp;·&nbsp;Created {formatDate(t.createdAt)}
-                  {t.lastUsedAt ? ` · Last used ${formatDate(t.lastUsedAt)}` : " · Never used"}
-                </p>
-              </div>
-              <button
-                onClick={() => handleRevoke(t.id)}
-                className="flex min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-background hover:text-destructive active:scale-90"
-                aria-label="Revoke token"
+          tokens.map((t) =>
+            pendingRevokeIds.includes(t.id) ? (
+              <PendingRevokeRow key={t.id} name={t.name} onUndo={() => handleUndoRevoke(t.id)} />
+            ) : (
+              <div
+                key={t.id}
+                className="flex items-center justify-between gap-2 rounded-input bg-muted px-3 py-2.5"
               >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))
+                <div>
+                  <p className="flex items-center gap-1.5 text-sm font-medium">
+                    {t.name}
+                    {t.viaOAuth && (
+                      <span className="rounded-pill bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                        OAuth
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {t.tokenPrefix}••••••&nbsp;·&nbsp;Created {formatDate(t.createdAt)}
+                    {t.lastUsedAt ? ` · Last used ${formatDate(t.lastUsedAt)}` : " · Never used"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleRevoke(t.id)}
+                  className="flex min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-background hover:text-destructive active:scale-90"
+                  aria-label="Revoke token"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ),
+          )
         )}
       </div>
 

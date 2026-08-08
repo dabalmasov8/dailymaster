@@ -17,29 +17,38 @@ export function SettingsSidebar() {
 
   return (
     <>
-      {/* Mobile: segmented control */}
-      <nav className="flex gap-1 rounded-card bg-muted p-1 lg:hidden" role="tablist">
-        {settingsLinks.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname === href;
-          return (
-            <Link
-              key={href}
-              href={href}
-              role="tab"
-              aria-selected={isActive}
-              className={cn(
-                "flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-button px-2 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Mobile: segmented control — horizontally scrollable with an edge fade hint */}
+      <div className="relative lg:hidden">
+        <nav
+          className="flex gap-1 overflow-x-auto rounded-card bg-muted p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="tablist"
+        >
+          {settingsLinks.map(({ href, label, icon: Icon }) => {
+            const isActive = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                role="tab"
+                aria-selected={isActive}
+                className={cn(
+                  "flex min-h-[44px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-button px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-card bg-gradient-to-l from-muted to-transparent"
+        />
+      </div>
 
       {/* Desktop: vertical sidebar */}
       <nav className="hidden w-64 flex-col gap-1 lg:flex">

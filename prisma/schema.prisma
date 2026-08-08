@@ -16,6 +16,7 @@ model User {
   newcomerIntroQuestions Json     @default("[{\"id\":\"default-1\",\"text\":\"Your name\"},{\"id\":\"default-2\",\"text\":\"Your role\"},{\"id\":\"default-3\",\"text\":\"Are you a morning person?\"},{\"id\":\"default-4\",\"text\":\"Should pineapple be allowed on pizza?\"}]")
   standupDurationMinutes Int      @default(2)
   standupDurationSeconds Int      @default(0)
+  keyboardShortcuts      Json     @default("{\"default\":\"d\",\"shuffled\":\"s\",\"blocker\":\"b\",\"capacity\":\"c\",\"next\":\"n\",\"absent\":\"a\",\"end\":\"v\"}")
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 

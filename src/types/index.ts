@@ -41,3 +41,34 @@ export interface BlockerRecord {
   resolutionNote: string;
   comments: BlockerComment[];
 }
+
+export type ShortcutAction =
+  | "default"
+  | "shuffled"
+  | "blocker"
+  | "capacity"
+  | "next"
+  | "absent"
+  | "end";
+
+export type ShortcutMap = Record<ShortcutAction, string>;
+
+export const DEFAULT_SHORTCUTS: ShortcutMap = {
+  default: "d",
+  shuffled: "s",
+  blocker: "b",
+  capacity: "c",
+  next: "n",
+  absent: "a",
+  end: "v",
+};
+
+export const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
+  default: "Start (default order)",
+  shuffled: "Start (shuffled order)",
+  blocker: "Mark blocker",
+  capacity: "Mark capacity",
+  next: "Next speaker",
+  absent: "Mark current speaker absent",
+  end: "End standup",
+};

@@ -1,5 +1,6 @@
 import { getOrCreateUser } from "@/lib/auth";
-import type { Question } from "@/types";
+import type { Question, ShortcutMap } from "@/types";
+import { DEFAULT_SHORTCUTS } from "@/types";
 import { StandupSettings } from "./standup-settings";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +8,10 @@ export const dynamic = "force-dynamic";
 export default async function StandupPropertiesPage() {
   const user = await getOrCreateUser();
   const questions = user.questions as unknown as Question[];
+  const shortcuts = {
+    ...DEFAULT_SHORTCUTS,
+    ...(user.keyboardShortcuts as unknown as Partial<ShortcutMap>),
+  };
 
   return (
     <div className="max-w-xl">
@@ -15,6 +20,7 @@ export default async function StandupPropertiesPage() {
         initialQuestions={questions}
         initialMinutes={user.standupDurationMinutes}
         initialSeconds={user.standupDurationSeconds}
+        initialShortcuts={shortcuts}
       />
     </div>
   );

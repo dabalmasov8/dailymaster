@@ -8,7 +8,7 @@ import {
   questionSchema,
   durationSchema,
 } from "@/lib/validations";
-import type { TeamMember, Question, ActionResult } from "@/types";
+import type { TeamMember, Question, ActionResult, ShortcutMap } from "@/types";
 
 function generateId() {
   return crypto.randomUUID();
@@ -207,5 +207,23 @@ export async function deleteNewcomerQuestion(
     data: { newcomerIntroQuestions: toJson(questions) },
   });
   revalidatePath("/settings/newcomer");
+  return { success: true };
+}
+
+// --- Keyboard Shortcuts ---
+
+export async function updateKeyboardShortcuts(shortcuts: ShortcutMap): Promise<ActionResult> {
+  const keys = Object.values(shortcuts);
+  const allSingleChar = keys.every((k) => typeof k === "string" && k.length === 1);
+  if (!allSingleChar) return { success: false, error: "Each shortcut must be a single key" };
+  const hasDuplicates = new Set(keys).size !== keys.length;
+  if (hasDuplicates) return { success: false, error: "Shortcuts must be unique" };
+
+  const user = await getOrCreateUser();
+  await db.user.update({
+    where: { id: user.id },
+    data: { keyboardShortcuts: toJson(shortcuts) },
+  });
+  revalidatePath("/settings/standup");
   return { success: true };
 }

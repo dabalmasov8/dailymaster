@@ -1,6 +1,9 @@
 import { getOrCreateUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { formatDuration } from "@/lib/format";
+import { computeDateRange, RANGE_LABELS, type RangePreset } from "@/lib/date-range";
 import { BlockerBoard } from "./blocker-board";
+import { InsightsFilters } from "./insights-filters";
 import type { BlockerRecord, SessionParticipant } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -9,35 +12,66 @@ function formatShortDate(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export default async function InsightsPage() {
+const VALID_PRESETS: RangePreset[] = [
+  "this_week",
+  "last_week",
+  "this_month",
+  "last_month",
+  "all_time",
+  "custom",
+];
+
+export default async function InsightsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const params = await searchParams;
+  const preset: RangePreset = VALID_PRESETS.includes(params.range as RangePreset)
+    ? (params.range as RangePreset)
+    : "this_week";
+  const { start, end } = computeDateRange(preset, params.from, params.to);
+
   const user = await getOrCreateUser();
 
-  const [sessions, blockers, capacityOffers] = await Promise.all([
+  const [sessions, allBlockers, capacityOffers] = await Promise.all([
     db.standupSession.findMany({
-      where: { userId: user.id, endedAt: { not: null } },
+      where: { userId: user.id, endedAt: { not: null }, startedAt: { gte: start, lt: end } },
       orderBy: { startedAt: "desc" },
-      take: 30,
     }),
+    // The blocker board always shows everything open, regardless of the
+    // selected date range — it's a working board, not a historical report.
     db.blocker.findMany({
       where: { userId: user.id },
       orderBy: { reportedAt: "desc" },
       include: { comments: { orderBy: { createdAt: "asc" } } },
     }),
-    db.capacityOffer.findMany({ where: { userId: user.id }, orderBy: { reportedAt: "desc" } }),
+    db.capacityOffer.findMany({
+      where: { userId: user.id, reportedAt: { gte: start, lt: end } },
+      orderBy: { reportedAt: "desc" },
+    }),
   ]);
 
-  const hasData = sessions.length > 0;
+  const blockersInRange = allBlockers.filter((b) => b.reportedAt >= start && b.reportedAt < end);
 
-  // --- Duration trend (chronological, last 10) ---
-  const recentSessions = [...sessions].reverse().slice(-10);
-  const durations = recentSessions.map((s) => ({
+  const hasAnyData = allBlockers.length > 0 || sessions.length > 0 || capacityOffers.length > 0;
+
+  // --- Duration trend (chronological within range, capped for display) ---
+  const MAX_TREND_POINTS = 20;
+  const chronological = [...sessions].reverse();
+  const truncated = chronological.length > MAX_TREND_POINTS;
+  const trendSessions = truncated ? chronological.slice(-MAX_TREND_POINTS) : chronological;
+  const durations = trendSessions.map((s) => ({
     label: formatShortDate(s.startedAt),
-    minutes: s.endedAt ? (s.endedAt.getTime() - s.startedAt.getTime()) / 60000 : 0,
+    seconds: s.endedAt ? (s.endedAt.getTime() - s.startedAt.getTime()) / 1000 : 0,
   }));
-  const avgDuration = durations.length
-    ? durations.reduce((sum, d) => sum + d.minutes, 0) / durations.length
+  const avgDurationSeconds = sessions.length
+    ? sessions.reduce(
+        (sum, s) => sum + (s.endedAt ? (s.endedAt.getTime() - s.startedAt.getTime()) / 1000 : 0),
+        0,
+      ) / sessions.length
     : 0;
-  const maxDuration = Math.max(1, ...durations.map((d) => d.minutes));
+  const maxDurationSeconds = Math.max(1, ...durations.map((d) => d.seconds));
 
   // --- Overtime frequency per person ---
   const overtimeMap = new Map<string, { name: string; overCount: number; totalCount: number }>();
@@ -72,10 +106,8 @@ export default async function InsightsPage() {
     .sort((a, b) => b.absentCount - a.absentCount)
     .slice(0, 5);
 
-  // --- Blocker aging ---
-  const openBlockers = blockers.filter(
-    (b) => b.status === "new" || b.status === "in_progress",
-  );
+  // --- Blocker aging (always across all open blockers, not range-limited) ---
+  const openBlockers = allBlockers.filter((b) => b.status === "new" || b.status === "in_progress");
   const oldestOpenDays = openBlockers.length
     ? Math.max(
         ...openBlockers.map((b) =>
@@ -84,23 +116,12 @@ export default async function InsightsPage() {
       )
     : 0;
 
-  // --- Weekly digest ---
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const weekSessions = sessions.filter((s) => s.startedAt >= weekAgo);
-  const weekBlockersOpened = blockers.filter((b) => b.reportedAt >= weekAgo).length;
-  const weekBlockersResolved = blockers.filter(
-    (b) => b.resolvedAt && b.resolvedAt >= weekAgo,
+  // --- Digest for the selected range ---
+  const blockersResolvedInRange = allBlockers.filter(
+    (b) => b.resolvedAt && b.resolvedAt >= start && b.resolvedAt < end,
   ).length;
-  const weekCapacityOffered = capacityOffers.filter((c) => c.reportedAt >= weekAgo).length;
-  const weekAvgDuration = weekSessions.length
-    ? weekSessions.reduce(
-        (sum, s) =>
-          sum + (s.endedAt ? (s.endedAt.getTime() - s.startedAt.getTime()) / 60000 : 0),
-        0,
-      ) / weekSessions.length
-    : 0;
 
-  const serializedBlockers: BlockerRecord[] = blockers.map((b) => ({
+  const serializedBlockers: BlockerRecord[] = allBlockers.map((b) => ({
     id: b.id,
     memberId: b.memberId,
     memberName: b.memberName,
@@ -116,14 +137,21 @@ export default async function InsightsPage() {
     })),
   }));
 
-  if (!hasData) {
+  const filters = (
+    <InsightsFilters activePreset={preset} from={params.from} to={params.to} />
+  );
+
+  if (!hasAnyData) {
     return (
-      <div className="flex flex-col items-center px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold">Insights</h1>
-        <p className="mt-2 max-w-md text-sm text-muted-foreground">
-          Run a few standups and this page will fill in with trends —
-          average duration, who runs over time, open blockers, and more.
-        </p>
+      <div className="flex flex-col gap-6 px-4 py-5 sm:px-8 sm:py-6">
+        <h1 className="text-xl font-bold sm:text-2xl">Insights</h1>
+        {filters}
+        <div className="flex flex-col items-center px-4 py-16 text-center">
+          <p className="max-w-md text-sm text-muted-foreground">
+            Run a few standups and this page will fill in with trends —
+            average duration, who runs over time, open blockers, and more.
+          </p>
+        </div>
       </div>
     );
   }
@@ -131,22 +159,25 @@ export default async function InsightsPage() {
   return (
     <div className="flex flex-col gap-6 px-4 py-5 sm:px-8 sm:py-6">
       <h1 className="text-xl font-bold sm:text-2xl">Insights</h1>
+      {filters}
 
       {/* Digest + summary cards, one row */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-card bg-card p-3 lg:col-span-1">
-          <p className="text-xs font-medium text-muted-foreground">This week</p>
+          <p className="text-xs font-medium text-muted-foreground">{RANGE_LABELS[preset]}</p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            {weekSessions.length} standup{weekSessions.length === 1 ? "" : "s"},{" "}
-            {weekAvgDuration.toFixed(1)} min avg · {weekBlockersOpened} opened,{" "}
-            {weekBlockersResolved} resolved · {weekCapacityOffered} capacity offer
-            {weekCapacityOffered === 1 ? "" : "s"}
+            {sessions.length} standup{sessions.length === 1 ? "" : "s"},{" "}
+            {formatDuration(avgDurationSeconds)} avg · {blockersInRange.length} blocker
+            {blockersInRange.length === 1 ? "" : "s"} opened, {blockersResolvedInRange} resolved ·{" "}
+            {capacityOffers.length} capacity offer{capacityOffers.length === 1 ? "" : "s"}
           </p>
         </div>
         <div className="rounded-card bg-card p-3">
           <p className="text-xs font-medium text-muted-foreground">Average duration</p>
-          <p className="mt-1 text-xl font-bold">{avgDuration.toFixed(1)} min</p>
-          <p className="text-xs text-muted-foreground">last {durations.length} standups</p>
+          <p className="mt-1 text-xl font-bold">{formatDuration(avgDurationSeconds)}</p>
+          <p className="text-xs text-muted-foreground">
+            {sessions.length} standup{sessions.length === 1 ? "" : "s"} in range
+          </p>
         </div>
         <div className="rounded-card bg-card p-3">
           <p className="text-xs font-medium text-muted-foreground">Open blockers</p>
@@ -158,7 +189,7 @@ export default async function InsightsPage() {
         <div className="rounded-card bg-card p-3">
           <p className="text-xs font-medium text-muted-foreground">Total standups</p>
           <p className="mt-1 text-xl font-bold">{sessions.length}</p>
-          <p className="text-xs text-muted-foreground">last 30 days</p>
+          <p className="text-xs text-muted-foreground">{RANGE_LABELS[preset].toLowerCase()}</p>
         </div>
       </section>
 
@@ -166,24 +197,28 @@ export default async function InsightsPage() {
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-1">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Duration trend
+            Duration trend{truncated ? ` (last ${MAX_TREND_POINTS})` : ""}
           </h2>
-          <div className="flex flex-col gap-1 rounded-card bg-card p-3">
-            {durations.map((d, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="w-10 shrink-0 text-[11px] text-muted-foreground">{d.label}</span>
-                <div className="h-3 flex-1 overflow-hidden rounded-input bg-muted">
-                  <div
-                    className="h-full rounded-input bg-secondary"
-                    style={{ width: `${Math.max(4, (d.minutes / maxDuration) * 100)}%` }}
-                  />
+          {durations.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No standups in this range.</p>
+          ) : (
+            <div className="flex flex-col gap-1 rounded-card bg-card p-3">
+              {durations.map((d, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="w-10 shrink-0 text-[11px] text-muted-foreground">{d.label}</span>
+                  <div className="h-3 flex-1 overflow-hidden rounded-input bg-muted">
+                    <div
+                      className="h-full rounded-input bg-secondary"
+                      style={{ width: `${Math.max(4, (d.seconds / maxDurationSeconds) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="w-14 shrink-0 text-right text-[11px] text-muted-foreground">
+                    {formatDuration(d.seconds)}
+                  </span>
                 </div>
-                <span className="w-12 shrink-0 text-right text-[11px] text-muted-foreground">
-                  {d.minutes.toFixed(1)}m
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>
@@ -201,7 +236,7 @@ export default async function InsightsPage() {
                 >
                   <span>{e.name}</span>
                   <span className="text-muted-foreground">
-                    {e.overCount}/{e.totalCount}
+                    over time in {e.overCount} of {e.totalCount} standups
                   </span>
                 </div>
               ))}
@@ -224,7 +259,7 @@ export default async function InsightsPage() {
                 >
                   <span>{e.name}</span>
                   <span className="text-muted-foreground">
-                    {e.absentCount}/{e.totalSessions}
+                    absent {e.absentCount} of {e.totalSessions} standups
                   </span>
                 </div>
               ))}
@@ -233,10 +268,10 @@ export default async function InsightsPage() {
         </div>
       </section>
 
-      {/* Blocker board */}
+      {/* Blocker board — always shows everything open, not limited by the date filter above */}
       <section>
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Blockers
+          Blockers (all time)
         </h2>
         <BlockerBoard blockers={serializedBlockers} />
       </section>
