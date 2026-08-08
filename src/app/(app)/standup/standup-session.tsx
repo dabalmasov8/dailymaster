@@ -492,7 +492,7 @@ export function StandupSession({
                     );
                   })}
                 </div>
-                <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                <p className="mt-2 text-center text-xs text-muted-foreground">
                   Tap a name to mark them absent. Everyone else counted as present.
                 </p>
               </div>

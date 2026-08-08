@@ -144,7 +144,9 @@ export default async function InsightsPage({
   if (!hasAnyData) {
     return (
       <div className="flex flex-col gap-6 px-4 py-5 sm:px-8 sm:py-6">
-        <h1 className="text-xl font-bold sm:text-2xl">Insights</h1>
+        <div className="sticky top-14 z-40 -mx-4 border-b border-border/40 bg-background/70 px-4 py-3 backdrop-blur-md sm:top-16 sm:-mx-8 sm:px-8">
+          <h1 className="text-xl font-bold sm:text-2xl">Insights</h1>
+        </div>
         {filters}
         <div className="flex flex-col items-center px-4 py-16 text-center">
           <p className="max-w-md text-sm text-muted-foreground">
@@ -158,7 +160,9 @@ export default async function InsightsPage({
 
   return (
     <div className="flex flex-col gap-6 px-4 py-5 sm:px-8 sm:py-6">
-      <h1 className="text-xl font-bold sm:text-2xl">Insights</h1>
+      <div className="sticky top-14 z-40 -mx-4 border-b border-border/40 bg-background/70 px-4 py-3 backdrop-blur-md sm:top-16 sm:-mx-8 sm:px-8">
+        <h1 className="text-xl font-bold sm:text-2xl">Insights</h1>
+      </div>
       {filters}
 
       {/* Digest + summary cards, one row */}
@@ -205,14 +209,14 @@ export default async function InsightsPage({
             <div className="flex flex-col gap-1 rounded-card bg-card p-3">
               {durations.map((d, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="w-10 shrink-0 text-[11px] text-muted-foreground">{d.label}</span>
+                  <span className="w-10 shrink-0 text-xs text-muted-foreground">{d.label}</span>
                   <div className="h-3 flex-1 overflow-hidden rounded-input bg-muted">
                     <div
                       className="h-full rounded-input bg-secondary"
                       style={{ width: `${Math.max(4, (d.seconds / maxDurationSeconds) * 100)}%` }}
                     />
                   </div>
-                  <span className="w-14 shrink-0 text-right text-[11px] text-muted-foreground">
+                  <span className="w-14 shrink-0 text-right text-xs text-muted-foreground">
                     {formatDuration(d.seconds)}
                   </span>
                 </div>

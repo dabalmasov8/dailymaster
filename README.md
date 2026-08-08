@@ -28,61 +28,38 @@ This is the third attempt. The first two didn't get far — wrong tools, no clea
 
 V1 solved the meeting itself: a timer, an order, a way to flag blockers, a way to copy the summary out. What it didn't solve is that the moment the meeting ended, everything about it disappeared. Blockers evaporated. Nobody could say whether the standup was getting shorter or longer over a month. "Waiting on Anna" from Tuesday had no way of becoming "resolved" by Friday. V1 ran the meeting; it didn't remember it.
 
-V2 is about giving the standup a memory, scoped deliberately to the pieces that turn into real product signal — not every idea that came up while brainstorming a future MCP integration.
+V2 gives the standup a memory — and, further into the milestone, lets you (or an AI assistant on your behalf) actually query that memory instead of staring at a sidebar that resets every morning.
 
-**What shipped:**
+**Standups now remember what happened.** Every session logs its start time, end time, speaking order, and how long each person actually took versus their allotted time. "Our standups are getting longer" went from a feeling to a fact you can check.
 
-- **Attendance tracking.** A "Who's here today?" chip row before you start — tap a name to mark them absent. Absent people are skipped in the rotation and it's logged, so "who keeps missing standup" becomes an answerable question instead of a hunch.
-- **Session logging.** Every standup now records its start time, end time, speaking order, and how long each person actually took versus their allotted time. This is what makes "our standups are getting longer" a fact instead of a feeling.
-- **Blockers with a lifecycle.** A blocker used to be a name in a sidebar for 15 minutes and then nothing. Now each one gets an optional note, persists past the meeting, and moves through New → In progress → Resolved / Won't fix on a dedicated board. A blocker is now a thing you can close, not just a thing you can mention.
-- **Capacity offers with a claim.** "Roy has capacity to help" was pure goodwill with no follow-through mechanism. Now each offer can be marked claimed, so capacity utilization — how much of the offered help actually gets used — is a real, visible number instead of an assumption.
-- **The Insights page.** Everything above rolls up into one view: average standup duration and its trend, who tends to run over their allotted time, who's been absent most, the blocker board, and capacity utilization. This is also the data foundation for the MCP server — the next milestone — so an assistant can eventually answer "what's still blocking us" or "how has standup length trended" by querying this same data instead of me building a bespoke report for every question.
+**Attendance is a fact, not a guess.** Before you start, a row of chips lets you mark who's actually here — tap a name to mark them absent, and they're skipped in the rotation. If someone turns out to be missing mid-meeting, there's a keyboard shortcut to mark the current speaker absent on the spot, instead of a confirmation screen standing between you and starting the meeting. Both feed the same attendance history.
 
-**Deliberately cut from this milestone:**
+**Blockers have a lifecycle, not just a mention.** A blocker used to be a name in a sidebar for fifteen minutes and then nothing. Now it persists, gets an optional note, and lives on a proper board — drag it from New to In Progress to Resolved, the same way you'd move a card in Trello. You can leave comments on a blocker as it develops ("talked to Anna, unblocked tomorrow") instead of losing that context the moment the meeting ends. Deleting a blocker gives you five seconds to undo it, like everything else destructive in this app — no "are you sure?" dialogs, just a safety net.
 
-- **Newcomer answer history.** Logging what each newcomer says to the icebreaker questions (to build a searchable "who is this person" memory) is a genuinely good idea, but it's a different feature surface — newcomer intros, not standups — and bundling it in would have diluted this milestone's actual focus: making the *daily* ritual accountable. Revisit later.
-- **Cross-session blocker dependency tagging** ("waiting on Team X"). This only matters once there's real multi-team usage to observe. Building it now would be designing for a scenario I haven't seen yet — premature structure for a problem that doesn't exist in the data.
+**Insights, sliced by the time period you actually care about.** Average standup duration, who tends to run over their allotted time, who's been absent most, all filterable by This week, Last week, This month, Last month, All time, or a custom date range — defaulting to this week, since that's usually the question you're actually asking. Durations show as "1m 3s," not "0.6 minutes."
 
-The discipline here is the same one from V1: define scope before writing code, and say no to good ideas that don't serve the milestone.
+**Your shortcuts, your way.** The six keys that run a standup — start, shuffle, mark blocker, mark capacity, next speaker, end — are now remappable in Settings, in case D-S-B-C-N-V doesn't match your muscle memory or keyboard layout.
 
----
+**An AI assistant that actually knows your team.** Connect Claude (or any compatible AI assistant) to your DailyMaster account from Settings, and it can answer questions about your standups directly — no exporting data, no copy-pasting into a chat window. Things you can ask it:
 
-## V2.1 — An MCP server for the data
+- "Who's on my team?"
+- "What blockers are still open, and how old is the oldest one?"
+- "How has our standup length trended over the last month?"
+- "Give me a digest of the last two weeks — standups, blockers, capacity."
+- "Mark the design-review blocker as resolved."
+- "Add a comment to that blocker saying we're waiting on design."
 
-V2 built the data; V2.1 makes it queryable by an AI assistant instead of only by the Insights page.
+It reads (and, for blocker status and comments, writes) the same data the Insights page shows you — so asking an assistant is a shortcut to the app, not a separate system to keep in sync.
 
-**What shipped:**
+**A UI pass across the whole app, not just new features.** Every destructive action — deleting a participant, a question, a blocker, an access token — uses the same five-second undo pattern instead of a confirmation dialog. Hover and pressed states were audited across every button and input so the app feels responsive to touch, not just click. Typography was tightened from a sprawling set of ad-hoc sizes down to a disciplined scale. The settings sidebar and its content now scroll independently, so a long list of questions doesn't push the navigation out of view. The Insights page header stays pinned (with a soft blurred background) as you scroll a long report.
 
-- **A hosted MCP server at `/api/mcp`.** Any MCP-compatible client — Claude Desktop, Claude.ai custom connectors, or anything else that speaks the protocol — can connect and ask questions about a team's standups.
-- **Personal access tokens, not shared credentials.** Since DailyMaster is multi-tenant (every Clerk user has their own team and data), the MCP server needs to know who's asking. Settings → MCP lets you generate a token, shown once at creation, hashed before it's stored — the same pattern GitHub, Linear, and most developer tools use for this exact problem. Revoking a token is immediate, no confirmation dialog, because the entire point of revocation is speed if a token leaks.
-- **Seven tools, read-heavy, one write.** `list_team_members`, `list_standups`, `get_standup_stats` (with trend vs. the previous period), `list_blockers`, `list_capacity_offers`, and `get_team_digest` are read-only. `update_blocker_status` is the one write tool — it means an assistant can actually resolve a blocker conversationally ("mark the design-review blocker as resolved"), not just report on it.
-- **Stateless by design.** Every request creates a fresh `McpServer` instance scoped to whichever user the token belongs to, then discards it. No session state to leak between users, no in-memory cache to get stale — a good fit for a serverless deployment where any request can land on a different instance.
+**Deliberately cut, and one thing un-cut:**
 
-**What I got wrong on the first pass, and how I found it:** I didn't just write this and ship it — I ran it against a real seeded account before calling it done, and found two bugs that would have made the whole thing silently fail in production:
+- **Capacity "claimed" tracking** shipped, then got removed. The idea was to track whether an offer of help ("I have capacity") actually turned into help given — but the checkbox that implemented it didn't have a clear mental model, and a feature nobody understands is worse than no feature. Cut cleanly rather than left half-working.
+- **Newcomer answer history** (logging what each newcomer says to icebreaker questions, to build a searchable "who is this person" memory) is a genuinely good idea for a different feature surface — newcomer intros, not standups — and stays out of scope for now.
+- **Cross-session blocker dependency tagging** ("waiting on Team X") only matters once there's real multi-team usage to observe. Building it now would be designing for a scenario that doesn't exist in the data yet.
 
-1. **Clerk's own middleware was blocking the route before my code ever ran.** DailyMaster protects every route by default and only exempts an explicit allowlist. `/api/mcp` authenticates itself via Bearer token, not a Clerk session — but I'd forgotten to add it to that allowlist, so Clerk's `auth.protect()` rejected every request before my token check even executed. A request with a *valid* token would have failed identically to one with no token at all. This only shows up when you test the authenticated path, not just the unauthenticated one.
-2. **The transport was returning empty responses.** The MCP SDK defaults to Server-Sent Events for its responses, and my first version explicitly closed the transport immediately after getting the `Response` object back — which cut the stream before it had actually flushed the reply. The fix was two lines: set `enableJsonResponse: true` (our tools are simple request/response, no server-initiated streaming needed) and stop closing the transport early. Both bugs returned HTTP 200 — nothing about the status code would have told you something was wrong. Only calling the real endpoint with a real token surfaced it.
-
-**Deliberately cut from this milestone:** OAuth-based auth (so a client could connect without manually copying a token) and MCP resources/prompts beyond tools. Personal access tokens are the smaller, well-understood piece that gets a working connector shipped now. OAuth turned out to matter sooner than "eventually" — see V2.2.
-
----
-
-## V2.2 — OAuth, so Claude.ai's Connectors actually work
-
-Personal access tokens from V2.1 work great for Claude Desktop and Claude Code, where you can paste a header into a config file. They don't work at all for Claude.ai's own Connectors UI — that flow doesn't have a field for a token. It expects the server to speak OAuth 2.1 and just goes straight to a browser handshake. Found this out the direct way: added the connector by URL, watched it bounce to a browser tab, and land on "Couldn't connect." No error code, no explanation — the client had no way to tell the user what was actually missing, because from its side, nothing about the server said "this needs a token" at all.
-
-**What shipped:**
-
-- **Full OAuth 2.1 authorization server, built into the same app.** DailyMaster now *is* the authorization server for its own MCP resource — no third-party OAuth provider, no separate service. `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server` (RFC 9728 and RFC 8414) let a client discover, from the server URL alone, that OAuth is required and where the endpoints live.
-- **Dynamic Client Registration** (RFC 7591) at `/oauth/register`. This is the part that makes "just add the URL" work at all — Claude.ai registers itself as a client on the fly, the first time a user connects, instead of me having to hand out a client ID in advance.
-- **A real consent screen**, not a rubber stamp. `/oauth/authorize` is a normal DailyMaster page — Clerk protects it like any other page, so signing in happens through the same flow you already use. Once signed in, you see exactly what's being requested ("read your standups, blockers, and capacity offers; mark blockers resolved") with Allow/Deny, and the redirect URI is checked against what the client registered before anything is trusted.
-- **PKCE-only token exchange, no client secret.** `/oauth/token` verifies the authorization code, the redirect URI, and the PKCE code verifier before minting anything. The code is deleted the moment it's looked up — valid or not — so a leaked or guessed code can only ever be tried once.
-- **Same token infrastructure as V2.1, not a parallel system.** An OAuth-issued access token *is* a row in the same `ApiToken` table personal access tokens live in, just tagged with which OAuth client created it. Settings → MCP lists both kinds together, labelled, and revokes either one the same way. One place to see everything with access to your data, not two.
-- **The 401 response now tells clients how to authenticate.** `/api/mcp` returns `WWW-Authenticate: Bearer resource_metadata="..."` on a 401, per the MCP authorization spec — the exact header that lets a well-behaved client go from "got rejected" to "here's where to get a token" without a human needing to know any of this exists.
-
-**Verified before calling it done:** registered a real client through `/oauth/register`, exchanged a real authorization code for a real access token through `/oauth/token`, and used that token to call `list_team_members` through the actual `/api/mcp` endpoint — the same path Claude.ai would take. Also confirmed the failure modes on purpose: replaying a spent authorization code fails, a wrong PKCE verifier fails, registering a client with no redirect URI fails. All test data — the OAuth client, the codes, the seeded user — was created through temporary routes and deleted afterward; none of it shipped.
-
-**Deliberately cut from this milestone:** refresh tokens. Access tokens live 90 days; when one expires, the client just re-runs the authorization flow instead of silently renewing in the background. That's a slightly worse experience once every three months and a meaningfully smaller amount of code to get right — no refresh-token rotation, no reuse-detection logic, no extra row type. Worth revisiting only if 90 days turns out to be the wrong number in practice, not before.
+The discipline is the same one from V1: define scope before writing code, and say no to good ideas that don't serve the milestone — including ones I'd already shipped.
 
 ---
 
@@ -104,13 +81,13 @@ In Settings, you can change the questions your team answers during standup, set 
 
 Open the Daily Standup page. Choose the speaker order — either the default list or a random shuffle. The timer starts counting down for the first speaker. When their time is up, it moves to the next person automatically.
 
-Before you start, a row of chips lets you mark who's actually here today — tap a name to mark them absent. Absent people are skipped in the rotation and it's logged, so attendance trends show up in Insights later.
+Before you start, a row of chips lets you mark who's actually here today — tap a name to mark them absent. Absent people are skipped in the rotation and it's logged, so attendance trends show up in Insights later. If someone turns out to be missing once the meeting's already running, a keyboard shortcut marks the current speaker absent on the spot.
 
-During someone's turn, you can mark them as having a **blocker** (something that is stopping their work) or **capacity** (they have free time to help others). These names collect in a sidebar so you don't forget them. Each blocker gets an optional one-line note field — enough for "waiting on design review," not a full ticket description. Each capacity offer gets a checkbox so you can mark it "claimed" once someone actually follows up and gets help.
+During someone's turn, you can mark them as having a **blocker** (something that is stopping their work) or **capacity** (they have free time to help others). These names collect in a sidebar so you don't forget them. Each blocker gets an optional one-line note field — enough for "waiting on design review," not a full ticket description.
 
-When the standup is done, press "Copy to clipboard" — it creates a formatted summary of who has blockers and who has capacity, ready to paste into Slack, Teams, or any team chat.
+When the standup is done, press "Copy standup notes" — it creates a formatted summary of who has blockers and who has capacity, ready to paste into Slack, Teams, or any team chat.
 
-All of this can be controlled with keyboard shortcuts: single key presses like D (start with default order), S (shuffle), B (mark blocker), N (next speaker). No clicking needed — the person running the meeting can keep their hands on the keyboard.
+All of this can be controlled with keyboard shortcuts: single key presses for start, shuffle, mark blocker, mark capacity, next speaker, mark absent, and end. No clicking needed — the person running the meeting can keep their hands on the keyboard. Don't like the default keys? Remap any of them in Settings.
 
 ### Step 4 — Welcome a newcomer
 
@@ -122,15 +99,11 @@ Since DailyMaster is a PWA (Progressive Web App — a website that behaves like 
 
 ### Step 6 — See trends in the Insights page
 
-Every standup you run now gets logged — start time, end time, who spoke, who was absent, who went over their allotted time. Blockers and capacity offers persist too, instead of vanishing the moment the meeting ends. The Insights page turns this into: average standup duration over your last 10 meetings, who tends to run over time, who's been absent most, a blocker board (New / In progress / Resolved / Won't fix) you can triage days after the standup, and how much offered capacity actually gets claimed. This is also the data foundation for the MCP server, below.
+Every standup you run now gets logged — start time, end time, who spoke, who was absent, who went over their allotted time. Blockers persist too, instead of vanishing the moment the meeting ends. The Insights page turns this into average standup duration, who tends to run over time, who's been absent most, and a blocker board (New / In progress / Resolved / Won't fix) you can drag cards through and comment on, days after the standup. Filter everything by This week, Last week, This month, Last month, All time, or a custom range — it defaults to this week.
 
 ### Step 7 — Connect an AI assistant
 
-**Claude.ai (Connectors):** add `https://dailymaster.online/api/mcp` as a custom connector — the full path, not just the domain. It signs you in and shows a consent screen — no token to copy.
-
-**Claude Desktop, Claude Code, or any other MCP client:** go to Settings → MCP and generate a token — it's shown once, so copy it somewhere safe. Add `https://dailymaster.online/api/mcp` as an MCP server with that token as a Bearer credential.
-
-Either way, the assistant can answer questions like "what blockers are still open" or "how has our standup length trended this month" directly from your team's data — and mark a blocker resolved without you opening the app.
+Go to Settings → MCP and follow the instructions to connect Claude (or any compatible AI assistant) to your account. Once connected, you can ask it things like "what blockers are still open" or "how has our standup length trended this month" — it answers directly from your team's real data, and can mark a blocker resolved or add a comment to one without you opening the app.
 
 ---
 
@@ -142,7 +115,7 @@ Either way, the assistant can answer questions like "what blockers are still ope
 
 **Copy standup notes.** After the standup, one button creates a formatted summary with the date, blockers, and capacity. It sits in a visually separated card above the lists — distinct from the action buttons — and shows a "Copied!" confirmation with a brief animation so you know it worked. Paste it into your team chat. No note-taking during the meeting.
 
-**Keyboard shortcuts for everything.** Six keys control the entire standup: D, S, B, C, N, V. The person running the meeting never has to reach for the mouse.
+**Keyboard shortcuts for everything, remappable.** Six keys control the entire standup — start, shuffle, mark blocker, mark capacity, next speaker, mark absent, end. The person running the meeting never has to reach for the mouse, and if the defaults don't fit your muscle memory, remap any of them in Settings.
 
 **Delete with undo.** Deleting a participant or question doesn't happen instantly. The row transforms into a "Deleted — Undo (5s)" bar with the name struck through and a countdown. After 5 seconds, it slides out with an animation and the deletion is final. This pattern prevents accidental data loss — no confirmation dialogs that interrupt your flow, but a safety net when you need it.
 
@@ -152,11 +125,9 @@ Either way, the assistant can answer questions like "what blockers are still ope
 
 **Logging that doesn't block the meeting.** Standup sessions, blockers, and capacity offers all persist to the database now, but nothing about the live meeting flow waits on a network round trip. Marking a blocker updates the UI immediately from local state; the database write happens in the background, and the returned row ID gets attached to the local entry once it resolves. If you remove a blocker before the write finishes, the local ID is still there to cancel it. The facilitator never sees a spinner mid-meeting.
 
-**A blocker board instead of a blocker list.** Blockers used to evaporate the moment a standup ended — nothing recorded whether "waiting on Anna" from Tuesday ever got resolved. The Insights page adds a four-column board (New, In progress, Resolved, Won't fix) so a blocker becomes a thing you can actually track and close, not just a name in a sidebar for 15 minutes.
+**A blocker board instead of a blocker list.** Blockers used to evaporate the moment a standup ended — nothing recorded whether "waiting on Anna" from Tuesday ever got resolved. The Insights page adds a drag-and-drop board (New, In progress, Resolved, Won't fix) with comment threads, so a blocker becomes a thing you can actually track and close, not just a name in a sidebar for 15 minutes.
 
-**A token you see exactly once.** When you generate an MCP access token, it's displayed in full one time, with a copy button and an explicit warning — after that, only a hashed version exists in the database and the UI shows a truncated prefix for identification. This is the same pattern GitHub and Linear use for personal access tokens, and it exists because the alternative (storing or re-displaying the plaintext secret) is a real security liability, not a hypothetical one.
-
-**One consent screen, two ways to get a token.** Whether you generate a personal access token in Settings or connect through Claude.ai's OAuth flow, you land on the same underlying decision: something is about to read your standup data. The OAuth consent screen spells out exactly what's being granted — not a generic "allow access" — and both paths end up in the same revocable token list, so there's one place to see everything connected to your account, not two systems to remember to check.
+**Undo instead of "are you sure?" — everywhere.** Deleting a blocker, an access token, a participant, a question: all of it works the same way. A five-second window to change your mind, no modal dialog interrupting your flow.
 
 ---
 

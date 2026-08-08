@@ -199,14 +199,14 @@ export function BlockerBoard({ blockers: initialBlockers }: { blockers: BlockerR
                         </button>
                       </div>
                       {b.note && <p className="ml-5 mt-0.5 text-xs text-muted-foreground">{b.note}</p>}
-                      <p className="ml-5 mt-1 text-[11px] text-muted-foreground">{daysAgo(b.reportedAt)}</p>
+                      <p className="ml-5 mt-1 text-xs text-muted-foreground">{daysAgo(b.reportedAt)}</p>
 
                       {b.comments.length > 0 && (
                         <div className="ml-5 mt-2 flex flex-col gap-1 border-t border-border pt-2">
                           {b.comments.map((c) => (
                             <p key={c.id} className="text-xs leading-snug">
                               {c.text}{" "}
-                              <span className="text-[10px] text-muted-foreground">{timeAgo(c.createdAt)}</span>
+                              <span className="text-xs text-muted-foreground">{timeAgo(c.createdAt)}</span>
                             </p>
                           ))}
                         </div>

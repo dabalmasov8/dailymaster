@@ -1,7 +1,25 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Smartphone, BadgeDollarSign, Check } from "lucide-react";
+import { Smartphone, BadgeDollarSign, Check, LineChart, Kanban, Sparkles } from "lucide-react";
 import { BrandBodyBackground } from "@/components/brand-body-background";
+
+const whatsNew = [
+  {
+    icon: LineChart,
+    title: "See the patterns, not just the meeting",
+    text: "Average standup length, who tends to run long, who's been missing — tracked automatically, with quick filters for this week, last month, or all time.",
+  },
+  {
+    icon: Kanban,
+    title: "Blockers you can actually track",
+    text: "Drag a blocker from New to Resolved like a real board. Leave a comment, come back to it tomorrow — nothing gets lost in yesterday's meeting.",
+  },
+  {
+    icon: Sparkles,
+    title: "Ask an AI assistant about your team",
+    text: "Connect Claude or any compatible assistant and ask “what blockers are still open” or “how has our standup length trended” — it reads straight from your data.",
+  },
+];
 
 const features = [
   {
@@ -139,6 +157,20 @@ export default function Home() {
             </div>
           </div>
         ))}
+      </section>
+
+      {/* What's new */}
+      <section className="mx-auto w-full max-w-6xl px-4 pb-20 sm:px-10">
+        <h2 className="text-center text-2xl font-bold sm:text-3xl">What&apos;s new</h2>
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          {whatsNew.map(({ icon: Icon, title, text }) => (
+            <div key={title} className="rounded-card bg-white/10 p-5 ring-1 ring-white/20">
+              <Icon className="h-6 w-6" />
+              <h3 className="mt-3 text-base font-semibold">{title}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-white/85">{text}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Extras strip */}

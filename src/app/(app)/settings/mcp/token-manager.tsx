@@ -153,7 +153,7 @@ export function TokenManager({ initialTokens }: { initialTokens: TokenSummary[] 
                   <p className="flex items-center gap-1.5 text-sm font-medium">
                     {t.name}
                     {t.viaOAuth && (
-                      <span className="rounded-pill bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                      <span className="rounded-pill bg-primary/10 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
                         OAuth
                       </span>
                     )}
