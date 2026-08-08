@@ -1,10 +1,10 @@
+import Link from "next/link";
 import { getOrCreateUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDuration } from "@/lib/format";
 import { computeDateRange, RANGE_LABELS, type RangePreset } from "@/lib/date-range";
-import { BlockerBoard } from "./blocker-board";
 import { InsightsFilters } from "./insights-filters";
-import type { BlockerRecord, SessionParticipant } from "@/types";
+import type { SessionParticipant } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -39,12 +39,11 @@ export default async function InsightsPage({
       where: { userId: user.id, endedAt: { not: null }, startedAt: { gte: start, lt: end } },
       orderBy: { startedAt: "desc" },
     }),
-    // The blocker board always shows everything open, regardless of the
-    // selected date range — it's a working board, not a historical report.
+    // Blocker aging/open-count stats always look at everything, regardless
+    // of the selected date range — the board itself lives on /blockers now.
     db.blocker.findMany({
       where: { userId: user.id },
       orderBy: { reportedAt: "desc" },
-      include: { comments: { orderBy: { createdAt: "asc" } } },
     }),
     db.capacityOffer.findMany({
       where: { userId: user.id, reportedAt: { gte: start, lt: end } },
@@ -121,22 +120,6 @@ export default async function InsightsPage({
     (b) => b.resolvedAt && b.resolvedAt >= start && b.resolvedAt < end,
   ).length;
 
-  const serializedBlockers: BlockerRecord[] = allBlockers.map((b) => ({
-    id: b.id,
-    memberId: b.memberId,
-    memberName: b.memberName,
-    note: b.note,
-    status: b.status as BlockerRecord["status"],
-    reportedAt: b.reportedAt.toISOString(),
-    resolvedAt: b.resolvedAt ? b.resolvedAt.toISOString() : null,
-    resolutionNote: b.resolutionNote,
-    comments: b.comments.map((c) => ({
-      id: c.id,
-      text: c.text,
-      createdAt: c.createdAt.toISOString(),
-    })),
-  }));
-
   const filters = (
     <InsightsFilters activePreset={preset} from={params.from} to={params.to} />
   );
@@ -183,13 +166,16 @@ export default async function InsightsPage({
             {sessions.length} standup{sessions.length === 1 ? "" : "s"} in range
           </p>
         </div>
-        <div className="rounded-card bg-card p-3">
+        <Link
+          href="/blockers"
+          className="rounded-card bg-card p-3 transition-colors hover:bg-muted"
+        >
           <p className="text-xs font-medium text-muted-foreground">Open blockers</p>
           <p className="mt-1 text-xl font-bold">{openBlockers.length}</p>
           <p className="text-xs text-muted-foreground">
-            {openBlockers.length > 0 ? `oldest ${oldestOpenDays}d ago` : "none open"}
+            {openBlockers.length > 0 ? `oldest ${oldestOpenDays}d ago · view board` : "none open"}
           </p>
-        </div>
+        </Link>
         <div className="rounded-card bg-card p-3">
           <p className="text-xs font-medium text-muted-foreground">Total standups</p>
           <p className="mt-1 text-xl font-bold">{sessions.length}</p>
@@ -270,14 +256,6 @@ export default async function InsightsPage({
             </div>
           )}
         </div>
-      </section>
-
-      {/* Blocker board — always shows everything open, not limited by the date filter above */}
-      <section>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Blockers (all time)
-        </h2>
-        <BlockerBoard blockers={serializedBlockers} />
       </section>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useTransition } from "react";
-import { Send, GripVertical, Trash2, Undo2 } from "lucide-react";
+import { Send, GripVertical, Trash2, Undo2, ChevronDown, ChevronRight } from "lucide-react";
 import { updateBlockerStatus, addBlockerComment } from "./actions";
 import { deleteBlocker } from "../standup/actions";
 import type { BlockerRecord, BlockerStatus } from "@/types";
@@ -15,6 +15,12 @@ const statusLabels: Record<BlockerStatus, string> = {
 };
 
 const statusOrder: BlockerStatus[] = ["new", "in_progress", "resolved", "wont_fix"];
+
+// Resolved/won't-fix blockers are done — collapse them to one line by
+// default so the board stays scannable instead of piling up finished work.
+function collapsesByDefault(status: BlockerStatus): boolean {
+  return status === "resolved" || status === "wont_fix";
+}
 
 function daysAgo(iso: string) {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));
@@ -61,8 +67,18 @@ export function BlockerBoard({ blockers: initialBlockers }: { blockers: BlockerR
   const [dragOverStatus, setDragOverStatus] = useState<BlockerStatus | null>(null);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const deleteTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [, startTransition] = useTransition();
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   function moveBlocker(id: string, status: BlockerStatus) {
     setBlockers((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
@@ -160,14 +176,53 @@ export function BlockerBoard({ blockers: initialBlockers }: { blockers: BlockerR
                   Drop here
                 </p>
               ) : (
-                items.map((b) =>
-                  pendingDeleteIds.includes(b.id) ? (
-                    <DeletePendingCard
-                      key={b.id}
-                      name={b.memberName}
-                      onUndo={() => handleUndoDelete(b.id)}
-                    />
-                  ) : (
+                items.map((b) => {
+                  if (pendingDeleteIds.includes(b.id)) {
+                    return (
+                      <DeletePendingCard
+                        key={b.id}
+                        name={b.memberName}
+                        onUndo={() => handleUndoDelete(b.id)}
+                      />
+                    );
+                  }
+
+                  const collapsible = collapsesByDefault(status);
+                  const collapsed = collapsible && !expandedIds.has(b.id);
+
+                  if (collapsed) {
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", b.id);
+                          e.dataTransfer.effectAllowed = "move";
+                          setDraggingId(b.id);
+                        }}
+                        onDragEnd={() => {
+                          setDraggingId(null);
+                          setDragOverStatus(null);
+                        }}
+                        onClick={() => toggleExpanded(b.id)}
+                        className={cn(
+                          "flex min-h-[32px] w-full cursor-grab items-center justify-between gap-2 rounded-input bg-background px-2 py-1 text-left ring-1 ring-border transition-all hover:ring-primary/40 active:cursor-grabbing",
+                          draggingId === b.id && "opacity-40",
+                        )}
+                      >
+                        <span className="flex items-center gap-1.5 truncate">
+                          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+                          <span className="truncate text-sm text-foreground">{b.memberName}</span>
+                        </span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {daysAgo(b.reportedAt)}
+                        </span>
+                      </button>
+                    );
+                  }
+
+                  return (
                     <div
                       key={b.id}
                       draggable
@@ -190,13 +245,25 @@ export function BlockerBoard({ blockers: initialBlockers }: { blockers: BlockerR
                           <GripVertical className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
                           <p className="text-sm font-semibold text-foreground">{b.memberName}</p>
                         </div>
-                        <button
-                          onClick={() => handleDelete(b.id)}
-                          aria-label="Delete blocker"
-                          className="flex min-h-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-muted hover:text-destructive active:scale-90"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          {collapsible && (
+                            <button
+                              onClick={() => toggleExpanded(b.id)}
+                              aria-label="Collapse blocker"
+                              title="Collapse"
+                              className="flex min-h-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-90"
+                            >
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDelete(b.id)}
+                            aria-label="Delete blocker"
+                            className="flex min-h-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-muted hover:text-destructive active:scale-90"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                       <p className="ml-5 mt-1.5 text-xs uppercase tracking-wide text-muted-foreground">
                         {daysAgo(b.reportedAt)}
@@ -239,8 +306,8 @@ export function BlockerBoard({ blockers: initialBlockers }: { blockers: BlockerR
                         </button>
                       </div>
                     </div>
-                  ),
-                )
+                  );
+                })
               )}
             </div>
           </div>

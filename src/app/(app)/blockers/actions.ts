@@ -12,6 +12,7 @@ export async function updateBlockerStatus(blockerId: string, status: BlockerStat
     where: { id: blockerId, userId: user.id },
     data: { status, resolvedAt: resolved ? new Date() : null },
   });
+  revalidatePath("/blockers");
   revalidatePath("/insights");
 }
 
@@ -29,6 +30,6 @@ export async function addBlockerComment(blockerId: string, text: string): Promis
   const comment = await db.blockerComment.create({
     data: { blockerId, userId: user.id, text: trimmed },
   });
-  revalidatePath("/insights");
+  revalidatePath("/blockers");
   return { id: comment.id, createdAt: comment.createdAt.toISOString() };
 }

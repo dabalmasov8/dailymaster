@@ -46,6 +46,7 @@ export async function reportBlocker(
     data: { userId: user.id, sessionId, memberId, memberName },
   });
   revalidatePath("/insights");
+  revalidatePath("/blockers");
   return blocker.id;
 }
 
@@ -61,6 +62,7 @@ export async function deleteBlocker(blockerId: string): Promise<void> {
   const user = await getOrCreateUser();
   await db.blocker.deleteMany({ where: { id: blockerId, userId: user.id } });
   revalidatePath("/insights");
+  revalidatePath("/blockers");
 }
 
 export async function reportCapacity(
