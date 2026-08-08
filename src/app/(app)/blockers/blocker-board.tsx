@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useTransition } from "react";
-import { Send, GripVertical, Trash2, Undo2, ChevronDown, ChevronRight } from "lucide-react";
+import { Send, GripVertical, Trash2, Undo2, ChevronUp, ChevronRight } from "lucide-react";
 import { updateBlockerStatus, addBlockerComment } from "./actions";
 import { deleteBlocker } from "../standup/actions";
 import type { BlockerRecord, BlockerStatus } from "@/types";
@@ -253,7 +253,7 @@ export function BlockerBoard({ blockers: initialBlockers }: { blockers: BlockerR
                               title="Collapse"
                               className="flex min-h-[32px] min-w-[32px] shrink-0 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-90"
                             >
-                              <ChevronDown className="h-3.5 w-3.5" />
+                              <ChevronUp className="h-3.5 w-3.5" />
                             </button>
                           )}
                           <button
