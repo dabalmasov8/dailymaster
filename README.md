@@ -49,7 +49,16 @@ V2 gives the standup a memory — and, further into the milestone, lets you (or 
 - "Mark the design-review blocker as resolved."
 - "Add a comment to that blocker saying we're waiting on design."
 
-It reads (and, for blocker status and comments, writes) the same data the Insights page shows you — so asking an assistant is a shortcut to the app, not a separate system to keep in sync.
+It reads (and, for blocker status and comments, writes) the same data the Insights page shows you — so asking an assistant is a shortcut to the app, not a separate system to keep in sync. Specifically, once connected, an assistant can:
+
+- **See your team roster** — who's on the team and their roles.
+- **Pull up recent standups** — start/end time, speaking order, and how long each person took versus their allotted time.
+- **Report on standup trends** — average duration over a period, and whether that's trending up or down compared to the period before.
+- **List your blockers** — filterable by status (new, in progress, resolved, won't fix), including the full comment thread on each one.
+- **Change a blocker's status on your behalf** — e.g. "mark the design-review blocker resolved."
+- **Add a comment to a blocker** — so a status update from a chat with your assistant lands in the same thread you'd see on the Insights board.
+- **List who's offered capacity to help**, and when.
+- **Summarize a whole period at once** — standup count, average duration, blockers opened/resolved, capacity offered, and who's been absent — a digest for standups you didn't have to write.
 
 **A UI pass across the whole app, not just new features.** Every destructive action — deleting a participant, a question, a blocker, an access token — uses the same five-second undo pattern instead of a confirmation dialog. Hover and pressed states were audited across every button and input so the app feels responsive to touch, not just click. Typography was tightened from a sprawling set of ad-hoc sizes down to a disciplined scale. The settings sidebar and its content now scroll independently, so a long list of questions doesn't push the navigation out of view. The Insights page header stays pinned (with a soft blurred background) as you scroll a long report.
 

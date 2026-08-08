@@ -35,7 +35,7 @@ export function InsightsFilters({
 
   const dateInputClasses = (active: boolean) =>
     cn(
-      "min-h-[36px] rounded-pill border px-2 py-1 text-xs transition-colors hover:border-foreground/40 focus:border-primary focus:outline-none",
+      "min-h-[36px] rounded-input border px-2 py-1 text-xs transition-colors hover:border-foreground/40 focus:border-primary focus:outline-none",
       active ? "border-primary text-primary" : "border-border text-muted-foreground",
     );
 
@@ -55,6 +55,7 @@ export function InsightsFilters({
           {p.label}
         </button>
       ))}
+      <div className="h-6 w-px bg-border" aria-hidden="true" />
       <div className="flex items-center gap-1.5">
         <input
           type="date"

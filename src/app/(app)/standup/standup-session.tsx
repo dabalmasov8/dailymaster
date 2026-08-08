@@ -145,7 +145,12 @@ function reducer(state: StandupState, action: StandupAction): StandupState {
         ...state.speakerLog,
         { memberId: speaker.id, name: speaker.name, present: false, allottedSeconds: 0, usedSeconds: 0 },
       ];
-      return advanceOrComplete(state, speakerLog);
+      const next = advanceOrComplete(state, speakerLog);
+      return {
+        ...next,
+        blockers: next.blockers.filter((b) => b.memberId !== speaker.id),
+        capacity: next.capacity.filter((c) => c.memberId !== speaker.id),
+      };
     }
     case "MARK_BLOCKER": {
       const speaker = state.speakers[state.currentIndex];
@@ -313,7 +318,7 @@ export function StandupSession({
           dispatch({ type: "NEXT_SPEAKER" });
         } else if (key === shortcuts.absent) {
           e.preventDefault();
-          dispatch({ type: "MARK_ABSENT_CURRENT" });
+          handleMarkAbsent();
         } else if (key === shortcuts.end) {
           e.preventDefault();
           dispatch({ type: "END_STANDUP" });
@@ -354,6 +359,20 @@ export function StandupSession({
     dispatch({ type: "MARK_CAPACITY", localId });
     const dbId = await reportCapacity(sessionIdRef.current, speaker.id, speaker.name);
     dispatch({ type: "SET_CAPACITY_DB_ID", localId, dbId });
+  }
+
+  function handleMarkAbsent() {
+    const speaker = state.speakers[state.currentIndex];
+    if (!speaker) return;
+    const blockersToDelete = state.blockers.filter((b) => b.memberId === speaker.id);
+    const capacityToDelete = state.capacity.filter((c) => c.memberId === speaker.id);
+    dispatch({ type: "MARK_ABSENT_CURRENT" });
+    blockersToDelete.forEach((b) => {
+      if (b.dbId) deleteBlocker(b.dbId);
+    });
+    capacityToDelete.forEach((c) => {
+      if (c.dbId) deleteCapacityOffer(c.dbId);
+    });
   }
 
   function handleNoteChange(blockerId: string, dbId: string | null, note: string) {
@@ -537,7 +556,7 @@ export function StandupSession({
               </button>
             </div>
             <button
-              onClick={() => dispatch({ type: "MARK_ABSENT_CURRENT" })}
+              onClick={handleMarkAbsent}
               className="mt-3 flex min-h-[36px] items-center gap-1.5 rounded-button px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95"
             >
               <UserX className="h-3.5 w-3.5" />

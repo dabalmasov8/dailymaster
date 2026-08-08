@@ -198,13 +198,13 @@ export function BlockerBoard({ blockers: initialBlockers }: { blockers: BlockerR
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      {b.note && <p className="ml-5 mt-1 text-sm leading-snug text-foreground/90">{b.note}</p>}
                       <p className="ml-5 mt-1.5 text-xs uppercase tracking-wide text-muted-foreground">
                         {daysAgo(b.reportedAt)}
                       </p>
+                      {b.note && <p className="ml-5 mt-1 text-sm leading-snug text-foreground/90">{b.note}</p>}
 
                       {b.comments.length > 0 && (
-                        <div className="ml-5 mt-2 flex flex-col gap-1.5 border-t border-border pt-2">
+                        <div className="ml-7 mt-2 flex flex-col gap-1.5 border-t border-border pt-2">
                           {b.comments.map((c) => (
                             <p key={c.id} className="text-xs leading-snug text-foreground/90">
                               {c.text}{" "}
@@ -224,6 +224,7 @@ export function BlockerBoard({ blockers: initialBlockers }: { blockers: BlockerR
                             if (e.key === "Enter") {
                               e.preventDefault();
                               handleAddComment(b.id);
+                              e.currentTarget.blur();
                             }
                           }}
                           placeholder="Add a comment..."

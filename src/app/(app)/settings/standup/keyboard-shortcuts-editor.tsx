@@ -76,6 +76,7 @@ export function KeyboardShortcutsEditor({ initialShortcuts }: { initialShortcuts
                   <button
                     onClick={() => handleResetOne(action)}
                     aria-label={`Reset ${SHORTCUT_LABELS[action]} to default`}
+                    title={`Reset to default key: ${displayShortcutKey(DEFAULT_SHORTCUTS[action])}`}
                     className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-background hover:text-foreground active:scale-90"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
