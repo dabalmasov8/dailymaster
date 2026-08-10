@@ -7,7 +7,7 @@ const whatsNew = [
   {
     icon: LineChart,
     title: "See the patterns, not just the meeting",
-    text: "Average standup length, who tends to run long, who's been missing — tracked automatically, with quick filters for this week, last month, or all time.",
+    text: "Average standup length, who tends to run long, who's been missing — tracked automatically, with quick filters for this week, last month, all time, or a custom range.",
   },
   {
     icon: Kanban,
@@ -24,30 +24,30 @@ const whatsNew = [
 const features = [
   {
     image: "/marketing/standup.png",
-    alt: "DailyMaster standup in progress: countdown timer, current speaker, and one-click blocker and capacity buttons",
+    alt: "Standup in progress: countdown timer, current speaker, and one-click blocker and capacity buttons",
     title: "One timer runs the whole meeting",
-    text: "The timer counts down for each speaker and moves to the next person automatically. Nobody plays traffic cop, nobody wonders who goes next.",
+    text: "The timer counts down for each speaker, and keeps counting into overtime instead of cutting them off. Nobody plays traffic cop, nobody wonders who goes next.",
     bullets: [
-      "Auto-advance when time is up",
-      "Mark blockers and capacity with one click",
-      "Six keyboard shortcuts control everything",
+      "Runs into overtime instead of a forced cutoff",
+      "Mark blockers, capacity, and absences with one click",
+      "Keyboard shortcuts control everything, and every one is remappable",
     ],
   },
   {
     image: "/marketing/newcomer.png",
-    alt: "DailyMaster newcomer intro screen with icebreaker questions and the current speaker",
+    alt: "Newcomer intro screen with an icebreaker question and the current speaker",
     title: "Newcomer intros people actually enjoy",
     text: "Replace “introduce yourself” with questions people argue about. The flow cycles through every team member, one by one.",
     bullets: [
       "100 built-in icebreaker questions",
-      "“Should pineapple be allowed on pizza?”",
+      "Teammates actually remember the answers",
       "The new person sees who their teammates really are",
     ],
     reverse: true,
   },
   {
     image: "/marketing/copy-notes.png",
-    alt: "DailyMaster copy standup notes button with a formatted summary of blockers and capacity",
+    alt: "Copy standup notes button with a formatted summary of blockers and capacity",
     title: "Notes without note-taking",
     text: "One button copies a clean, formatted summary — who has blockers, who has capacity — ready to paste straight into Slack or Teams.",
     bullets: [
@@ -58,7 +58,7 @@ const features = [
   },
   {
     image: "/marketing/icebreaker.png",
-    alt: "DailyMaster newcomer settings with an 'Add a random icebreaker' button",
+    alt: "Newcomer settings with a list of icebreaker questions and an 'Add a random icebreaker' button",
     title: "Never run out of icebreakers",
     text: "Pick from a curated pool of 100 questions, checked for duplicates, so \"introduce yourself\" never gets stale.",
     bullets: [
