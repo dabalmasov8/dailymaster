@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RangePreset } from "@/lib/date-range";
 
@@ -33,6 +34,10 @@ export function InsightsFilters({
     router.push(`${pathname}?range=custom&from=${newFrom}&to=${newTo}`);
   }
 
+  function clearCustomRange() {
+    router.push(pathname);
+  }
+
   const dateInputClasses = (active: boolean) =>
     cn(
       "min-h-[36px] rounded-input border px-2 py-1 text-xs transition-colors hover:border-foreground/40 focus:border-primary focus:outline-none",
@@ -58,6 +63,7 @@ export function InsightsFilters({
       <div className="h-6 w-px bg-border" aria-hidden="true" />
       <div className="flex items-center gap-1.5">
         <input
+          key={`from-${from ?? ""}`}
           type="date"
           defaultValue={from}
           onChange={(e) => setCustomRange(e.target.value, to ?? "")}
@@ -67,6 +73,7 @@ export function InsightsFilters({
         />
         <span className="text-xs text-muted-foreground">to</span>
         <input
+          key={`to-${to ?? ""}`}
           type="date"
           defaultValue={to}
           onChange={(e) => setCustomRange(from ?? "", e.target.value)}
@@ -74,6 +81,16 @@ export function InsightsFilters({
           className={dateInputClasses(activePreset === "custom")}
           aria-label="Custom range end date"
         />
+        {activePreset === "custom" && (from || to) && (
+          <button
+            onClick={clearCustomRange}
+            aria-label="Clear custom date range"
+            title="Clear custom range"
+            className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-90"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
     </div>
   );

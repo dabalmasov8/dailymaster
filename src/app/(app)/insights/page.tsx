@@ -152,11 +152,15 @@ export default async function InsightsPage({
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-card bg-card p-3 lg:col-span-1">
           <p className="text-xs font-medium text-muted-foreground">{RANGE_LABELS[preset]}</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            {sessions.length} standup{sessions.length === 1 ? "" : "s"},{" "}
-            {formatDuration(avgDurationSeconds)} avg · {blockersInRange.length} blocker
-            {blockersInRange.length === 1 ? "" : "s"} opened, {blockersResolvedInRange} resolved ·{" "}
-            {capacityOffers.length} capacity offer{capacityOffers.length === 1 ? "" : "s"}
+          <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+            <span className="font-semibold text-foreground">{sessions.length}</span> standup
+            {sessions.length === 1 ? "" : "s"},{" "}
+            <span className="font-semibold text-foreground">{formatDuration(avgDurationSeconds)}</span>{" "}
+            avg · <span className="font-semibold text-foreground">{blockersInRange.length}</span>{" "}
+            blocker{blockersInRange.length === 1 ? "" : "s"} opened,{" "}
+            <span className="font-semibold text-foreground">{blockersResolvedInRange}</span> resolved
+            · <span className="font-semibold text-foreground">{capacityOffers.length}</span> capacity
+            offer{capacityOffers.length === 1 ? "" : "s"}
           </p>
         </div>
         <div className="rounded-card bg-card p-3">
